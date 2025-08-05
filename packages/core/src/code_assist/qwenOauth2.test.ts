@@ -13,7 +13,7 @@ import {
   type QwenCredentials,
   type DeviceAuthorizationResponse,
   type DeviceTokenResponse,
-} from './qwenOAuth2.js';
+} from './qwenOauth2.js';
 
 // Mock qrcode-terminal
 vi.mock('qrcode-terminal', () => ({
@@ -215,7 +215,7 @@ describe('QwenOAuth2Client', () => {
             'Content-Type': 'application/json',
             Accept: 'application/json',
           },
-        })
+        }),
       );
     });
 
@@ -232,7 +232,7 @@ describe('QwenOAuth2Client', () => {
           scope: ['email'],
           code_challenge: 'test-challenge',
           code_challenge_method: 'S256',
-        })
+        }),
       ).rejects.toThrow('Device authorization failed: 400 Bad Request');
     });
   });

@@ -14,7 +14,9 @@ import qrcode from 'qrcode-terminal';
 import { Config } from '../config/config.js';
 
 // OAuth Endpoints
-const QWEN_OAUTH_BASE_URL = 'https://chat.qwen.ai';
+const QWEN_OAUTH_BASE_URL = process.env.DEBUG
+  ? 'http://localhost:57721'
+  : 'https://chat.qwen.ai';
 const QWEN_OAUTH_DEVICE_CODE_ENDPOINT = `${QWEN_OAUTH_BASE_URL}/api/v2/oauth2/device/code`;
 const QWEN_OAUTH_TOKEN_ENDPOINT = `${QWEN_OAUTH_BASE_URL}/api/v2/oauth/oauth2/token`;
 
@@ -57,7 +59,10 @@ export function generateCodeChallenge(codeVerifier: string): string {
  * Generate PKCE code verifier and challenge pair
  * @returns Object containing code_verifier and code_challenge
  */
-export function generatePKCEPair(): { code_verifier: string; code_challenge: string } {
+export function generatePKCEPair(): {
+  code_verifier: string;
+  code_challenge: string;
+} {
   const codeVerifier = generateCodeVerifier();
   const codeChallenge = generateCodeChallenge(codeVerifier);
   return { code_verifier: codeVerifier, code_challenge: codeChallenge };
@@ -364,12 +369,17 @@ async function authWithQwenDeviceFlow(
     if (!config.isBrowserLaunchSuppressed()) {
       try {
         console.log('Attempting to open browser...');
-        const childProcess = await open(deviceAuth.verification_uri_complete);
+        throw new Error('test');
+        //const childProcess = await open(deviceAuth.verification_uri_complete);
+        /*
         childProcess.on('error', () => {
           console.log('Visit this URL to authorize:');
           console.log(deviceAuth.verification_uri_complete);
-          qrcode.generate(deviceAuth.verification_uri_complete, { small: true });
+          qrcode.generate(deviceAuth.verification_uri_complete, {
+            small: true,
+          });
         });
+        */
       } catch (_err) {
         console.log('Visit this URL to authorize:');
         console.log(deviceAuth.verification_uri_complete);
