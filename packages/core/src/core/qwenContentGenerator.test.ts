@@ -8,6 +8,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import {
   IQwenOAuth2Client,
   QwenCredentials,
+  TokenRefreshData,
 } from '../code_assist/qwenOAuth2.js';
 import {
   GenerateContentParameters,
@@ -91,8 +92,12 @@ describe('QwenContentGenerator Testing Patterns', () => {
         new Error('Token expired'),
       );
       vi.mocked(mockQwenClient.refreshAccessToken).mockResolvedValue({
-        credentials: {
+        success: true,
+        request_id: 'test-request-id',
+        data: {
           access_token: 'refreshed-token',
+          token_type: 'Bearer',
+          expires_in: 3600,
           endpoint: 'https://new-endpoint.com',
         },
       });
@@ -104,7 +109,7 @@ describe('QwenContentGenerator Testing Patterns', () => {
         token = result.token;
       } catch {
         const refreshResult = await mockQwenClient.refreshAccessToken();
-        token = refreshResult.credentials.access_token;
+        token = (refreshResult.data as TokenRefreshData).access_token;
       }
 
       expect(token).toBe('refreshed-token');
@@ -446,13 +451,19 @@ describe('QwenContentGenerator Testing Patterns', () => {
 
     it('should handle missing access token in refresh response', async () => {
       vi.mocked(mockQwenClient.refreshAccessToken).mockResolvedValue({
-        credentials: {},
+        success: true,
+        request_id: 'test-request-id',
+        data: {
+          access_token: '',
+          token_type: 'Bearer',
+          expires_in: 3600,
+        } as TokenRefreshData,
       });
 
       let error: string | undefined;
       try {
         const result = await mockQwenClient.refreshAccessToken();
-        if (!result.credentials.access_token) {
+        if (!(result.data as TokenRefreshData).access_token) {
           error = 'Failed to refresh access token: no token returned';
         }
       } catch (_e) {

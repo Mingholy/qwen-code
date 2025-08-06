@@ -328,19 +328,19 @@ export class QwenOAuth2Client implements IQwenOAuth2Client {
       throw new Error('No refresh token available');
     }
 
-    const body = new URLSearchParams({
+    const bodyData = {
       grant_type: 'refresh_token',
       refresh_token: this.credentials.refresh_token,
       client_id: QWEN_OAUTH_CLIENT_ID,
-    });
+    };
 
     const response = await fetch(QWEN_OAUTH_TOKEN_ENDPOINT, {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
+        'Content-Type': 'application/json',
         Accept: 'application/json',
       },
-      body: body.toString(),
+      body: JSON.stringify(bodyData),
     });
 
     if (!response.ok) {
