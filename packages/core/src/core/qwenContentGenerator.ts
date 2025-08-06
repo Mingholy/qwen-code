@@ -5,7 +5,11 @@
  */
 
 import { OpenAIContentGenerator } from './openaiContentGenerator.js';
-import { IQwenOAuth2Client } from '../code_assist/qwenOAuth2.js';
+import {
+  IQwenOAuth2Client,
+  type TokenRefreshData,
+  type ErrorData,
+} from '../code_assist/qwenOAuth2.js';
 import { Config } from '../config/config.js';
 import {
   GenerateContentParameters,
@@ -232,22 +236,31 @@ export class QwenContentGenerator extends OpenAIContentGenerator {
   private async performTokenRefresh(): Promise<string> {
     try {
       console.log('Refreshing Qwen access token...');
-      const { credentials } = await this.qwenClient.refreshAccessToken();
+      const response = await this.qwenClient.refreshAccessToken();
 
-      if (!credentials.access_token) {
+      if (!response.success) {
+        const errorData = response.data as ErrorData;
+        throw new Error(
+          `Token refresh failed: ${errorData?.code || 'Unknown error'} - ${errorData?.details || 'No details provided'}`,
+        );
+      }
+
+      const tokenData = response.data as TokenRefreshData;
+
+      if (!tokenData.access_token) {
         throw new Error('Failed to refresh access token: no token returned');
       }
 
-      this.currentToken = credentials.access_token;
+      this.currentToken = tokenData.access_token;
 
       // Update endpoint if provided
-      if (credentials.endpoint) {
-        this.currentEndpoint = credentials.endpoint;
-        console.log('Qwen endpoint updated:', credentials.endpoint);
+      if (tokenData.endpoint) {
+        this.currentEndpoint = tokenData.endpoint;
+        console.log('Qwen endpoint updated:', tokenData.endpoint);
       }
 
       console.log('Qwen access token refreshed successfully');
-      return credentials.access_token;
+      return tokenData.access_token;
     } catch (error) {
       console.error('Failed to refresh Qwen access token:', error);
       throw new Error(

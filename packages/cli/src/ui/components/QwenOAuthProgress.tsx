@@ -15,12 +15,16 @@ interface QwenOAuthProgressProps {
   onTimeout: () => void;
   onCancel: () => void;
   deviceAuth?: DeviceAuthorizationInfo;
+  authStatus?: 'idle' | 'polling' | 'success' | 'error' | 'timeout';
+  authMessage?: string | null;
 }
 
 export function QwenOAuthProgress({
   onTimeout,
   onCancel,
   deviceAuth,
+  authStatus,
+  authMessage,
 }: QwenOAuthProgressProps): React.JSX.Element {
   const [timeRemaining, setTimeRemaining] = useState<number>(
     deviceAuth?.expires_in || 300, // Default 5 minutes
@@ -28,8 +32,11 @@ export function QwenOAuthProgress({
   const [dots, setDots] = useState<string>('');
   const [qrCodeData, setQrCodeData] = useState<string | null>(null);
 
-  useInput((_, key) => {
-    if (key.escape) {
+  useInput((input, key) => {
+    if (authStatus === 'timeout') {
+      // Any key press in timeout state should trigger cancel to return to auth dialog
+      onCancel();
+    } else if (key.escape) {
       onCancel();
     }
   });
@@ -94,6 +101,35 @@ export function QwenOAuthProgress({
     const remainingSeconds = seconds % 60;
     return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
   };
+
+  // Handle timeout state
+  if (authStatus === 'timeout') {
+    return (
+      <Box
+        borderStyle="round"
+        borderColor={Colors.AccentRed}
+        flexDirection="column"
+        padding={1}
+        width="100%"
+      >
+        <Text bold color={Colors.AccentRed}>
+          Qwen OAuth Authentication Timeout
+        </Text>
+
+        <Box marginTop={1}>
+          <Text>
+            {authMessage || 'Authentication timed out due to no user response.'}
+          </Text>
+        </Box>
+
+        <Box marginTop={1}>
+          <Text color={Colors.Gray}>
+            Press any key to return to authentication type selection.
+          </Text>
+        </Box>
+      </Box>
+    );
+  }
 
   if (!deviceAuth) {
     return (

@@ -12,18 +12,19 @@ import * as os from 'os';
 import open from 'open';
 import { EventEmitter } from 'events';
 import { Config } from '../config/config.js';
+import { randomUUID } from 'node:crypto';
 
 // OAuth Endpoints
 const QWEN_OAUTH_BASE_URL = process.env.DEBUG
-  ? 'http://localhost:57721'
+  ? 'https://pre4-chat.qwen.ai'
   : 'https://chat.qwen.ai';
 
 const QWEN_OAUTH_DEVICE_CODE_ENDPOINT = `${QWEN_OAUTH_BASE_URL}/api/v2/oauth2/device/code`;
-const QWEN_OAUTH_TOKEN_ENDPOINT = `${QWEN_OAUTH_BASE_URL}/api/v2/oauth/oauth2/token`;
+const QWEN_OAUTH_TOKEN_ENDPOINT = `${QWEN_OAUTH_BASE_URL}/api/v2/oauth2/token`;
 
 // OAuth Client Configuration
-const QWEN_OAUTH_CLIENT_ID = 'qwen-code';
-const QWEN_OAUTH_SCOPE = ['email']; // scope is optional
+const QWEN_OAUTH_CLIENT_ID = 'f0304373b74a44d2b584a3fb70ca9e56';
+const QWEN_OAUTH_SCOPE = 'openid profile email model.completion';
 
 // File System Configuration
 const QWEN_DIR = '.qwen';
@@ -70,6 +71,24 @@ export function generatePKCEPair(): {
 }
 
 /**
+ * Base response interface for all Qwen API responses
+ * @template T The type of data when successful, or error type when failed
+ */
+export interface BaseResponse<T> {
+  success: boolean;
+  request_id: string;
+  data: T;
+}
+
+/**
+ * Standard error response data
+ */
+export interface ErrorData {
+  code: string;
+  details: string;
+}
+
+/**
  * Qwen OAuth2 credentials interface
  */
 export interface QwenCredentials {
@@ -82,9 +101,9 @@ export interface QwenCredentials {
 }
 
 /**
- * Device authorization response interface
+ * Device authorization success data
  */
-export interface DeviceAuthorizationResponse {
+export interface DeviceAuthorizationData {
   device_code: string;
   user_code: string;
   verification_uri: string;
@@ -93,16 +112,91 @@ export interface DeviceAuthorizationResponse {
 }
 
 /**
+ * Device authorization response interface
+ */
+export type DeviceAuthorizationResponse = BaseResponse<
+  DeviceAuthorizationData | ErrorData
+>;
+
+/**
+ * Type guard to check if device authorization was successful
+ */
+export function isDeviceAuthorizationSuccess(
+  response: DeviceAuthorizationResponse,
+): response is BaseResponse<DeviceAuthorizationData> {
+  return response.success && 'device_code' in response.data;
+}
+
+/**
+ * Device token success data
+ */
+export interface DeviceTokenData {
+  access_token: string | null;
+  refresh_token?: string | null;
+  token_type: string;
+  expires_in: number | null;
+  scope?: string | null;
+  endpoint?: string;
+  resource_url?: string;
+}
+
+/**
+ * Device token pending response
+ */
+export interface DeviceTokenPendingData {
+  status: 'pending';
+}
+
+/**
  * Device token response interface
  */
-export interface DeviceTokenResponse {
-  status: 'pending' | 'success';
-  access_token?: string;
-  refresh_token?: string;
-  token_type?: string;
-  expires_in?: number;
-  scope?: string;
+export type DeviceTokenResponse = BaseResponse<
+  DeviceTokenData | DeviceTokenPendingData | ErrorData
+>;
+
+/**
+ * Type guard to check if device token response was successful
+ */
+export function isDeviceTokenSuccess(
+  response: DeviceTokenResponse,
+): response is BaseResponse<DeviceTokenData> {
+  return (
+    response.success &&
+    'access_token' in response.data &&
+    response.data.access_token !== null &&
+    response.data.access_token !== undefined &&
+    typeof response.data.access_token === 'string' &&
+    response.data.access_token.length > 0
+  );
 }
+
+/**
+ * Type guard to check if device token response is pending
+ */
+export function isDeviceTokenPending(
+  response: DeviceTokenResponse,
+): response is BaseResponse<DeviceTokenPendingData> {
+  return (
+    response.success &&
+    'status' in response.data &&
+    (response.data as DeviceTokenPendingData).status === 'pending'
+  );
+}
+
+/**
+ * Token refresh success data
+ */
+export interface TokenRefreshData {
+  access_token: string;
+  token_type: string;
+  expires_in: number;
+  endpoint?: string;
+}
+
+/**
+ * Token refresh response interface
+ */
+export type TokenRefreshResponse = BaseResponse<TokenRefreshData | ErrorData>;
 
 /**
  * Qwen OAuth2 client interface
@@ -112,7 +206,7 @@ export interface IQwenOAuth2Client {
   getCredentials(): QwenCredentials;
   getAccessToken(): Promise<{ token?: string }>;
   requestDeviceAuthorization(options: {
-    scope: string[];
+    scope: string;
     code_challenge: string;
     code_challenge_method: string;
   }): Promise<DeviceAuthorizationResponse>;
@@ -120,7 +214,7 @@ export interface IQwenOAuth2Client {
     device_code: string;
     code_verifier: string;
   }): Promise<DeviceTokenResponse>;
-  refreshAccessToken(): Promise<{ credentials: QwenCredentials }>;
+  refreshAccessToken(): Promise<TokenRefreshResponse>;
 }
 
 /**
@@ -148,21 +242,22 @@ export class QwenOAuth2Client implements IQwenOAuth2Client {
     }
 
     if (this.credentials.refresh_token) {
-      const refreshedCreds = await this.refreshAccessToken();
-      return { token: refreshedCreds.credentials.access_token };
+      const refreshResponse = await this.refreshAccessToken();
+      const tokenData = refreshResponse.data as TokenRefreshData;
+      return { token: tokenData.access_token };
     }
 
     return { token: undefined };
   }
 
   async requestDeviceAuthorization(options: {
-    scope: string[];
+    scope: string;
     code_challenge: string;
     code_challenge_method: string;
   }): Promise<DeviceAuthorizationResponse> {
     const bodyData = {
       client_id: QWEN_OAUTH_CLIENT_ID,
-      scope: options.scope.join(' '),
+      scope: options.scope,
       code_challenge: options.code_challenge,
       code_challenge_method: options.code_challenge_method,
     };
@@ -172,6 +267,7 @@ export class QwenOAuth2Client implements IQwenOAuth2Client {
       headers: {
         'Content-Type': 'application/json',
         Accept: 'application/json',
+        'x-request-id': randomUUID(),
       },
       body: JSON.stringify(bodyData),
     });
@@ -186,6 +282,14 @@ export class QwenOAuth2Client implements IQwenOAuth2Client {
     const result = (await response.json()) as DeviceAuthorizationResponse;
     console.log('Device authorization result:', result);
 
+    // Check if the response indicates success
+    if (!isDeviceAuthorizationSuccess(result)) {
+      const errorData = result.data as ErrorData;
+      throw new Error(
+        `Device authorization failed: ${errorData?.code || 'Unknown error'} - ${errorData?.details || 'No details provided'}`,
+      );
+    }
+
     return result;
   }
 
@@ -194,7 +298,7 @@ export class QwenOAuth2Client implements IQwenOAuth2Client {
     code_verifier: string;
   }): Promise<DeviceTokenResponse> {
     const bodyData = {
-      grant_type: 'device_code',
+      grant_type: 'urn:ietf:params:oauth:grant-type:device_code',
       client_id: QWEN_OAUTH_CLIENT_ID,
       device_code: options.device_code,
       code_verifier: options.code_verifier,
@@ -219,7 +323,7 @@ export class QwenOAuth2Client implements IQwenOAuth2Client {
     return (await response.json()) as DeviceTokenResponse;
   }
 
-  async refreshAccessToken(): Promise<{ credentials: QwenCredentials }> {
+  async refreshAccessToken(): Promise<TokenRefreshResponse> {
     if (!this.credentials.refresh_token) {
       throw new Error('No refresh token available');
     }
@@ -252,47 +356,28 @@ export class QwenOAuth2Client implements IQwenOAuth2Client {
       );
     }
 
-    const responseData = await response.json();
+    const responseData = (await response.json()) as TokenRefreshResponse;
 
-    // Handle the API response format from api.md
-    let tokens: QwenCredentials;
-    if (responseData.success && responseData.data) {
-      // Success response format
-      tokens = {
-        access_token: responseData.data.access_token,
-        token_type: responseData.data.token_type,
-        refresh_token: this.credentials.refresh_token, // Preserve existing refresh token
-        endpoint: responseData.data.endpoint, // Include endpoint if provided
-      };
-
-      // Set expiry date based on expires_in field
-      if (responseData.data.expires_in) {
-        tokens.expiry_date = Date.now() + responseData.data.expires_in * 1000;
-      }
-    } else {
-      // Direct token response (fallback)
-      tokens = responseData as QwenCredentials;
-
-      // Preserve refresh token if not returned
-      if (!tokens.refresh_token && this.credentials.refresh_token) {
-        tokens.refresh_token = this.credentials.refresh_token;
-      }
-
-      // Preserve endpoint if not returned
-      if (!tokens.endpoint && this.credentials.endpoint) {
-        tokens.endpoint = this.credentials.endpoint;
-      }
-
-      // Set expiry date based on expires_in field or default
-      if (!tokens.expiry_date && tokens.access_token) {
-        const expiresIn =
-          (tokens as { expires_in?: number }).expires_in || 3600;
-        tokens.expiry_date = Date.now() + expiresIn * 1000;
-      }
+    // Check if the response indicates success
+    if (!responseData.success) {
+      const errorData = responseData.data as ErrorData;
+      throw new Error(
+        `Token refresh failed: ${errorData?.code || 'Unknown error'} - ${errorData?.details || 'No details provided'}`,
+      );
     }
 
+    // Handle successful response
+    const tokenData = responseData.data as TokenRefreshData;
+    const tokens: QwenCredentials = {
+      access_token: tokenData.access_token,
+      token_type: tokenData.token_type,
+      refresh_token: this.credentials.refresh_token, // Preserve existing refresh token
+      endpoint: tokenData.endpoint, // Include endpoint if provided
+      expiry_date: Date.now() + tokenData.expires_in * 1000,
+    };
+
     this.setCredentials(tokens);
-    return { credentials: tokens };
+    return responseData;
   }
 
   private isTokenValid(): boolean {
@@ -307,6 +392,7 @@ export class QwenOAuth2Client implements IQwenOAuth2Client {
 export enum QwenOAuth2Event {
   AuthUri = 'auth-uri',
   AuthProgress = 'auth-progress',
+  AuthCancel = 'auth-cancel',
 }
 
 /**
@@ -327,20 +413,17 @@ export async function getQwenOAuthClient(
     return client;
   }
 
-  // Use device authorization flow for authentication
-  let success = false;
-  const maxRetries = 2;
-  for (let i = 0; !success && i < maxRetries; i++) {
-    success = await authWithQwenDeviceFlow(client, config);
-    if (!success) {
-      console.error(
-        '\nFailed to authenticate with Qwen device flow.',
-        i === maxRetries - 1 ? '' : 'Retrying...\n',
-      );
-    }
-  }
+  // Use device authorization flow for authentication (single attempt)
+  const success = await authWithQwenDeviceFlow(client, config);
   if (!success) {
-    process.exit(1);
+    // Emit timeout event for UI to handle gracefully
+    qwenOAuth2Events.emit(
+      QwenOAuth2Event.AuthProgress,
+      'timeout',
+      'Authentication timed out. Please try again or select a different authentication method.',
+    );
+    console.error('\nQwen OAuth authentication failed or timed out.');
+    throw new Error('Qwen OAuth authentication failed or timed out');
   }
 
   return client;
@@ -350,6 +433,14 @@ async function authWithQwenDeviceFlow(
   client: QwenOAuth2Client,
   config: Config,
 ): Promise<boolean> {
+  let isCancelled = false;
+
+  // Set up cancellation listener
+  const cancelHandler = () => {
+    isCancelled = true;
+  };
+  qwenOAuth2Events.once(QwenOAuth2Event.AuthCancel, cancelHandler);
+
   try {
     // Generate PKCE code verifier and challenge
     const { code_verifier, code_challenge } = generatePKCEPair();
@@ -361,11 +452,19 @@ async function authWithQwenDeviceFlow(
       code_challenge_method: 'S256',
     });
 
+    // Ensure we have a successful authorization response
+    if (!isDeviceAuthorizationSuccess(deviceAuth)) {
+      const errorData = deviceAuth.data as ErrorData;
+      throw new Error(
+        `Device authorization failed: ${errorData?.code || 'Unknown error'} - ${errorData?.details || 'No details provided'}`,
+      );
+    }
+
     console.log('\n=== Qwen OAuth Device Authorization ===');
     console.log(
       `Please visit the following URL on your phone or browser for authorization:`,
     );
-    console.log(`\n${deviceAuth.verification_uri_complete}\n`);
+    console.log(`\n${deviceAuth.data.verification_uri_complete}\n`);
 
     const showFallbackMessage = () => {
       // Emit device authorization event for UI integration
@@ -375,7 +474,9 @@ async function authWithQwenDeviceFlow(
     // If browser launch is not suppressed, try to open the URL
     if (!config.isBrowserLaunchSuppressed()) {
       try {
-        const childProcess = await open(deviceAuth.verification_uri_complete);
+        const childProcess = await open(
+          deviceAuth.data.verification_uri_complete,
+        );
 
         // IMPORTANT: Attach an error handler to the returned child process.
         // Without this, if `open` fails to spawn a process (e.g., `xdg-open` is not found
@@ -407,30 +508,42 @@ async function authWithQwenDeviceFlow(
     // Poll for the token
     const pollInterval = 5000; // 5 seconds
     const maxAttempts = Math.ceil(
-      deviceAuth.expires_in / (pollInterval / 1000),
+      deviceAuth.data.expires_in / (pollInterval / 1000),
     );
 
     for (let attempt = 0; attempt < maxAttempts; attempt++) {
+      // Check if authentication was cancelled
+      if (isCancelled) {
+        console.log('\nAuthentication cancelled by user.');
+        qwenOAuth2Events.emit(
+          QwenOAuth2Event.AuthProgress,
+          'error',
+          'Authentication cancelled by user.',
+        );
+        return false;
+      }
+
       try {
+        console.log('polling for token...');
         const tokenResponse = await client.pollDeviceToken({
-          device_code: deviceAuth.device_code,
+          device_code: deviceAuth.data.device_code,
           code_verifier,
         });
 
-        if (tokenResponse.status === 'success' && tokenResponse.access_token) {
+        // Check if the response is successful and contains token data
+        if (isDeviceTokenSuccess(tokenResponse)) {
+          const tokenData = tokenResponse.data as DeviceTokenData;
+
           // Convert to QwenCredentials format
           const credentials: QwenCredentials = {
-            access_token: tokenResponse.access_token,
-            refresh_token: tokenResponse.refresh_token,
-            token_type: tokenResponse.token_type,
-            endpoint: (tokenResponse as { endpoint?: string }).endpoint, // Include endpoint if provided
+            access_token: tokenData.access_token!, // Safe to assert as non-null due to isDeviceTokenSuccess check
+            refresh_token: tokenData.refresh_token || undefined,
+            token_type: tokenData.token_type,
+            endpoint: tokenData.endpoint,
+            expiry_date: tokenData.expires_in
+              ? Date.now() + tokenData.expires_in * 1000
+              : undefined,
           };
-
-          // Set expiry date based on expires_in field
-          if (tokenResponse.expires_in) {
-            credentials.expiry_date =
-              Date.now() + tokenResponse.expires_in * 1000;
-          }
 
           client.setCredentials(credentials);
 
@@ -448,8 +561,8 @@ async function authWithQwenDeviceFlow(
           return true;
         }
 
-        // If status is 'pending', continue polling
-        if (tokenResponse.status === 'pending') {
+        // Check if the response is pending
+        if (isDeviceTokenPending(tokenResponse)) {
           // Emit polling progress event
           qwenOAuth2Events.emit(
             QwenOAuth2Event.AuthProgress,
@@ -459,8 +572,50 @@ async function authWithQwenDeviceFlow(
 
           process.stdout.write('.');
 
-          await new Promise((resolve) => setTimeout(resolve, pollInterval));
+          // Wait with cancellation check every 100ms
+          await new Promise<void>((resolve) => {
+            const checkInterval = 100; // Check every 100ms
+            let elapsedTime = 0;
+
+            const intervalId = setInterval(() => {
+              elapsedTime += checkInterval;
+
+              // Check for cancellation during wait
+              if (isCancelled) {
+                clearInterval(intervalId);
+                resolve();
+                return;
+              }
+
+              // Complete wait when interval is reached
+              if (elapsedTime >= pollInterval) {
+                clearInterval(intervalId);
+                resolve();
+                return;
+              }
+            }, checkInterval);
+          });
+
+          // Check for cancellation after waiting
+          if (isCancelled) {
+            console.log('\nAuthentication cancelled by user.');
+            qwenOAuth2Events.emit(
+              QwenOAuth2Event.AuthProgress,
+              'error',
+              'Authentication cancelled by user.',
+            );
+            return false;
+          }
+
           continue;
+        }
+
+        // Handle error response
+        if (!tokenResponse.success) {
+          const errorData = tokenResponse.data as ErrorData;
+          throw new Error(
+            `Token polling failed: ${errorData?.code || 'Unknown error'} - ${errorData?.details || 'No details provided'}`,
+          );
         }
       } catch (error: unknown) {
         // Handle specific error cases
@@ -483,6 +638,12 @@ async function authWithQwenDeviceFlow(
         qwenOAuth2Events.emit(QwenOAuth2Event.AuthProgress, 'error', message);
 
         console.error('\n' + message);
+
+        // Check for cancellation before waiting
+        if (isCancelled) {
+          return false;
+        }
+
         await new Promise((resolve) => setTimeout(resolve, pollInterval));
       }
     }
@@ -492,7 +653,7 @@ async function authWithQwenDeviceFlow(
     // Emit timeout error event
     qwenOAuth2Events.emit(
       QwenOAuth2Event.AuthProgress,
-      'error',
+      'timeout',
       timeoutMessage,
     );
 
@@ -502,6 +663,9 @@ async function authWithQwenDeviceFlow(
     const errorMessage = error instanceof Error ? error.message : String(error);
     console.error('Device authorization flow failed:', errorMessage);
     return false;
+  } finally {
+    // Clean up event listener
+    qwenOAuth2Events.off(QwenOAuth2Event.AuthCancel, cancelHandler);
   }
 }
 

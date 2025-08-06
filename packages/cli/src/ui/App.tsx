@@ -231,8 +231,14 @@ const App = ({ config, settings, startupWarnings = [], version }: AppProps) => {
     cancelAuthentication,
   } = useAuthCommand(settings, setAuthError, config);
 
-  const { isQwenAuthenticating, deviceAuth, isQwenAuth, cancelQwenAuth } =
-    useQwenAuth(settings, isAuthenticating);
+  const {
+    isQwenAuthenticating,
+    deviceAuth,
+    isQwenAuth,
+    cancelQwenAuth,
+    authStatus,
+    authMessage
+  } = useQwenAuth(settings, isAuthenticating);
 
   useEffect(() => {
     if (settings.merged.selectedAuthType) {
@@ -251,6 +257,18 @@ const App = ({ config, settings, startupWarnings = [], version }: AppProps) => {
       setUserTier(config.getGeminiClient()?.getUserTier());
     }
   }, [config, isAuthenticating]);
+
+  // Handle Qwen OAuth timeout
+  useEffect(() => {
+    if (isQwenAuth && authStatus === 'timeout') {
+      setAuthError(
+        authMessage || 'Qwen OAuth authentication timed out. Please try again or select a different authentication method.',
+      );
+      cancelQwenAuth();
+      cancelAuthentication();
+      openAuthDialog();
+    }
+  }, [isQwenAuth, authStatus, authMessage, cancelQwenAuth, cancelAuthentication, openAuthDialog, setAuthError]);
 
   const {
     isEditorDialogOpen,
@@ -866,6 +884,8 @@ const App = ({ config, settings, startupWarnings = [], version }: AppProps) => {
               {isQwenAuth && isQwenAuthenticating ? (
                 <QwenOAuthProgress
                   deviceAuth={deviceAuth || undefined}
+                  authStatus={authStatus}
+                  authMessage={authMessage}
                   onTimeout={() => {
                     setAuthError(
                       'Qwen OAuth authentication timed out. Please try again.',
@@ -936,7 +956,7 @@ const App = ({ config, settings, startupWarnings = [], version }: AppProps) => {
               <LoadingIndicator
                 thought={
                   streamingState === StreamingState.WaitingForConfirmation ||
-                  config.getAccessibility()?.disableLoadingPhrases
+                    config.getAccessibility()?.disableLoadingPhrases
                     ? undefined
                     : thought
                 }
