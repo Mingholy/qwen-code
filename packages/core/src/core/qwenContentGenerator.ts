@@ -9,6 +9,7 @@ import {
   IQwenOAuth2Client,
   type TokenRefreshData,
   type ErrorData,
+  isErrorResponse,
 } from '../code_assist/qwenOAuth2.js';
 import { Config } from '../config/config.js';
 import {
@@ -50,7 +51,7 @@ export class QwenContentGenerator extends OpenAIContentGenerator {
    */
   private getCurrentEndpoint(): string {
     const endpoint = this.currentEndpoint || DEFAULT_QWEN_BASE_URL;
-    const suffix = '/compatible-mode/v1';
+    const suffix = '/v1';
 
     // If endpoint doesn't start with http:// or https://, treat it as hostname and add https://
     if (endpoint && !endpoint.match(/^https?:\/\//)) {
@@ -89,24 +90,24 @@ export class QwenContentGenerator extends OpenAIContentGenerator {
   async generateContentStream(
     request: GenerateContentParameters,
   ): Promise<AsyncGenerator<GenerateContentResponse>> {
-    const token = await this.getTokenWithRetry();
+    return this.withValidTokenForStream(async (token) => {
+      // Update the API key and base URL before streaming
+      const originalApiKey = this.client.apiKey;
+      const originalBaseURL = this.client.baseURL;
+      this.client.apiKey = token;
+      this.client.baseURL = this.getCurrentEndpoint();
 
-    // Update the API key and base URL before streaming
-    const originalApiKey = this.client.apiKey;
-    const originalBaseURL = this.client.baseURL;
-    this.client.apiKey = token;
-    this.client.baseURL = this.getCurrentEndpoint();
-
-    try {
-      return await super.generateContentStream(request);
-    } catch (error) {
-      // Restore original values on error
-      this.client.apiKey = originalApiKey;
-      this.client.baseURL = originalBaseURL;
-      throw error;
-    }
-    // Note: We don't restore the values in finally for streaming because
-    // the generator may continue to be used after this method returns
+      try {
+        return await super.generateContentStream(request);
+      } catch (error) {
+        // Restore original values on error
+        this.client.apiKey = originalApiKey;
+        this.client.baseURL = originalBaseURL;
+        throw error;
+      }
+      // Note: We don't restore the values in finally for streaming because
+      // the generator may continue to be used after this method returns
+    });
   }
 
   /**
@@ -164,11 +165,29 @@ export class QwenContentGenerator extends OpenAIContentGenerator {
     } catch (error) {
       // Check if this is an authentication error
       if (this.isAuthError(error)) {
-        console.log(
-          'Authentication error detected, refreshing token and retrying...',
-        );
+        // Refresh token and retry once silently
+        const newToken = await this.refreshToken();
+        return await operation(newToken);
+      }
 
-        // Refresh token and retry once
+      throw error;
+    }
+  }
+
+  /**
+   * Execute operation with a valid token for streaming, with retry on auth failure
+   */
+  private async withValidTokenForStream<T>(
+    operation: (token: string) => Promise<T>,
+  ): Promise<T> {
+    const token = await this.getTokenWithRetry();
+
+    try {
+      return await operation(token);
+    } catch (error) {
+      // Check if this is an authentication error
+      if (this.isAuthError(error)) {
+        // Refresh token and retry once silently
         const newToken = await this.refreshToken();
         return await operation(newToken);
       }
@@ -244,17 +263,16 @@ export class QwenContentGenerator extends OpenAIContentGenerator {
 
   private async performTokenRefresh(): Promise<string> {
     try {
-      console.log('Refreshing Qwen access token...');
       const response = await this.qwenClient.refreshAccessToken();
 
-      if (!response.success) {
-        const errorData = response.data as ErrorData;
+      if (isErrorResponse(response)) {
+        const errorData = response as ErrorData;
         throw new Error(
-          `Token refresh failed: ${errorData?.code || 'Unknown error'} - ${errorData?.details || 'No details provided'}`,
+          `${errorData?.error || 'Unknown error'} - ${errorData?.error_description || 'No details provided'}`,
         );
       }
 
-      const tokenData = response.data as TokenRefreshData;
+      const tokenData = response as TokenRefreshData;
 
       if (!tokenData.access_token) {
         throw new Error('Failed to refresh access token: no token returned');
@@ -265,15 +283,12 @@ export class QwenContentGenerator extends OpenAIContentGenerator {
       // Update endpoint if provided
       if (tokenData.resource_url) {
         this.currentEndpoint = tokenData.resource_url;
-        console.log('Qwen endpoint updated:', tokenData.resource_url);
       }
 
-      console.log('Qwen access token refreshed successfully');
       return tokenData.access_token;
     } catch (error) {
-      console.error('Failed to refresh Qwen access token:', error);
       throw new Error(
-        `Token refresh failed: ${error instanceof Error ? error.message : String(error)}`,
+        `${error instanceof Error ? error.message : String(error)}`,
       );
     }
   }
@@ -297,11 +312,14 @@ export class QwenContentGenerator extends OpenAIContentGenerator {
     const errorCode = errorWithCode?.status || errorWithCode?.code;
 
     return (
+      errorCode === 400 ||
       errorCode === 401 ||
       errorCode === 403 ||
       errorMessage.includes('unauthorized') ||
       errorMessage.includes('forbidden') ||
       errorMessage.includes('invalid api key') ||
+      errorMessage.includes('invalid access token') ||
+      errorMessage.includes('token expired') ||
       errorMessage.includes('authentication') ||
       errorMessage.includes('access denied') ||
       (errorMessage.includes('token') && errorMessage.includes('expired'))

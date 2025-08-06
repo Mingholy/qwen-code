@@ -15,15 +15,14 @@ import { Config } from '../config/config.js';
 import { randomUUID } from 'node:crypto';
 
 // OAuth Endpoints
-const QWEN_OAUTH_BASE_URL = process.env.DEBUG
-  ? 'https://pre4-chat.qwen.ai'
-  : 'https://chat.qwen.ai';
+const QWEN_OAUTH_BASE_URL = 'https://pre4-chat.qwen.ai';
+// const QWEN_OAUTH_BASE_URL = 'https://chat.qwen.ai';
 
-const QWEN_OAUTH_DEVICE_CODE_ENDPOINT = `${QWEN_OAUTH_BASE_URL}/api/v2/oauth2/device/code`;
-const QWEN_OAUTH_TOKEN_ENDPOINT = `${QWEN_OAUTH_BASE_URL}/api/v2/oauth2/token`;
+const QWEN_OAUTH_DEVICE_CODE_ENDPOINT = `${QWEN_OAUTH_BASE_URL}/api/v1/oauth2/device/code`;
+const QWEN_OAUTH_TOKEN_ENDPOINT = `${QWEN_OAUTH_BASE_URL}/api/v1/oauth2/token`;
 
 // OAuth Client Configuration
-const QWEN_OAUTH_CLIENT_ID = 'f0304373b74a44d2b584a3fb70ca9e56';
+const QWEN_OAUTH_CLIENT_ID = '93a239d6ed36412c8c442e91b60fa305';
 const QWEN_OAUTH_SCOPE = 'openid profile email model.completion';
 
 // File System Configuration
@@ -71,21 +70,22 @@ export function generatePKCEPair(): {
 }
 
 /**
- * Base response interface for all Qwen API responses
- * @template T The type of data when successful, or error type when failed
+ * Convert object to URL-encoded form data
+ * @param data The object to convert
+ * @returns URL-encoded string
  */
-export interface BaseResponse<T> {
-  success: boolean;
-  request_id: string;
-  data: T;
+function objectToUrlEncoded(data: Record<string, string>): string {
+  return Object.keys(data)
+    .map((key) => `${encodeURIComponent(key)}=${encodeURIComponent(data[key])}`)
+    .join('&');
 }
 
 /**
  * Standard error response data
  */
 export interface ErrorData {
-  code: string;
-  details: string;
+  error: string;
+  error_description: string;
 }
 
 /**
@@ -114,17 +114,15 @@ export interface DeviceAuthorizationData {
 /**
  * Device authorization response interface
  */
-export type DeviceAuthorizationResponse = BaseResponse<
-  DeviceAuthorizationData | ErrorData
->;
+export type DeviceAuthorizationResponse = DeviceAuthorizationData | ErrorData;
 
 /**
  * Type guard to check if device authorization was successful
  */
 export function isDeviceAuthorizationSuccess(
   response: DeviceAuthorizationResponse,
-): response is BaseResponse<DeviceAuthorizationData> {
-  return response.success && 'device_code' in response.data;
+): response is DeviceAuthorizationData {
+  return 'device_code' in response;
 }
 
 /**
@@ -150,23 +148,23 @@ export interface DeviceTokenPendingData {
 /**
  * Device token response interface
  */
-export type DeviceTokenResponse = BaseResponse<
-  DeviceTokenData | DeviceTokenPendingData | ErrorData
->;
+export type DeviceTokenResponse =
+  | DeviceTokenData
+  | DeviceTokenPendingData
+  | ErrorData;
 
 /**
  * Type guard to check if device token response was successful
  */
 export function isDeviceTokenSuccess(
   response: DeviceTokenResponse,
-): response is BaseResponse<DeviceTokenData> {
+): response is DeviceTokenData {
   return (
-    response.success &&
-    'access_token' in response.data &&
-    response.data.access_token !== null &&
-    response.data.access_token !== undefined &&
-    typeof response.data.access_token === 'string' &&
-    response.data.access_token.length > 0
+    'access_token' in response &&
+    response.access_token !== null &&
+    response.access_token !== undefined &&
+    typeof response.access_token === 'string' &&
+    response.access_token.length > 0
   );
 }
 
@@ -175,12 +173,23 @@ export function isDeviceTokenSuccess(
  */
 export function isDeviceTokenPending(
   response: DeviceTokenResponse,
-): response is BaseResponse<DeviceTokenPendingData> {
+): response is DeviceTokenPendingData {
   return (
-    response.success &&
-    'status' in response.data &&
-    (response.data as DeviceTokenPendingData).status === 'pending'
+    'status' in response &&
+    (response as DeviceTokenPendingData).status === 'pending'
   );
+}
+
+/**
+ * Type guard to check if response is an error
+ */
+export function isErrorResponse(
+  response:
+    | DeviceAuthorizationResponse
+    | DeviceTokenResponse
+    | TokenRefreshResponse,
+): response is ErrorData {
+  return 'error' in response;
 }
 
 /**
@@ -190,13 +199,14 @@ export interface TokenRefreshData {
   access_token: string;
   token_type: string;
   expires_in: number;
+  refresh_token?: string; // Some OAuth servers may return a new refresh token
   resource_url?: string;
 }
 
 /**
  * Token refresh response interface
  */
-export type TokenRefreshResponse = BaseResponse<TokenRefreshData | ErrorData>;
+export type TokenRefreshResponse = TokenRefreshData | ErrorData;
 
 /**
  * Qwen OAuth2 client interface
@@ -243,7 +253,7 @@ export class QwenOAuth2Client implements IQwenOAuth2Client {
 
     if (this.credentials.refresh_token) {
       const refreshResponse = await this.refreshAccessToken();
-      const tokenData = refreshResponse.data as TokenRefreshData;
+      const tokenData = refreshResponse as TokenRefreshData;
       return { token: tokenData.access_token };
     }
 
@@ -265,11 +275,11 @@ export class QwenOAuth2Client implements IQwenOAuth2Client {
     const response = await fetch(QWEN_OAUTH_DEVICE_CODE_ENDPOINT, {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json',
+        'Content-Type': 'application/x-www-form-urlencoded',
         Accept: 'application/json',
         'x-request-id': randomUUID(),
       },
-      body: JSON.stringify(bodyData),
+      body: objectToUrlEncoded(bodyData),
     });
 
     if (!response.ok) {
@@ -284,9 +294,9 @@ export class QwenOAuth2Client implements IQwenOAuth2Client {
 
     // Check if the response indicates success
     if (!isDeviceAuthorizationSuccess(result)) {
-      const errorData = result.data as ErrorData;
+      const errorData = result as ErrorData;
       throw new Error(
-        `Device authorization failed: ${errorData?.code || 'Unknown error'} - ${errorData?.details || 'No details provided'}`,
+        `Device authorization failed: ${errorData?.error || 'Unknown error'} - ${errorData?.error_description || 'No details provided'}`,
       );
     }
 
@@ -307,10 +317,10 @@ export class QwenOAuth2Client implements IQwenOAuth2Client {
     const response = await fetch(QWEN_OAUTH_TOKEN_ENDPOINT, {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json',
+        'Content-Type': 'application/x-www-form-urlencoded',
         Accept: 'application/json',
       },
-      body: JSON.stringify(bodyData),
+      body: objectToUrlEncoded(bodyData),
     });
 
     if (!response.ok) {
@@ -337,18 +347,19 @@ export class QwenOAuth2Client implements IQwenOAuth2Client {
     const response = await fetch(QWEN_OAUTH_TOKEN_ENDPOINT, {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json',
+        'Content-Type': 'application/x-www-form-urlencoded',
         Accept: 'application/json',
       },
-      body: JSON.stringify(bodyData),
+      body: objectToUrlEncoded(bodyData),
     });
 
     if (!response.ok) {
       const errorData = await response.text();
       // Handle 401 errors which might indicate refresh token expiry
-      if (response.status === 401) {
+      if (response.status === 400) {
+        await clearQwenCredentials();
         throw new Error(
-          'Refresh token expired or invalid. Please re-authenticate.',
+          "Refresh token expired or invalid. Please use '/auth' to re-authenticate.",
         );
       }
       throw new Error(
@@ -359,24 +370,29 @@ export class QwenOAuth2Client implements IQwenOAuth2Client {
     const responseData = (await response.json()) as TokenRefreshResponse;
 
     // Check if the response indicates success
-    if (!responseData.success) {
-      const errorData = responseData.data as ErrorData;
+    if (isErrorResponse(responseData)) {
+      const errorData = responseData as ErrorData;
       throw new Error(
-        `Token refresh failed: ${errorData?.code || 'Unknown error'} - ${errorData?.details || 'No details provided'}`,
+        `Token refresh failed: ${errorData?.error || 'Unknown error'} - ${errorData?.error_description || 'No details provided'}`,
       );
     }
 
     // Handle successful response
-    const tokenData = responseData.data as TokenRefreshData;
+    const tokenData = responseData as TokenRefreshData;
     const tokens: QwenCredentials = {
       access_token: tokenData.access_token,
       token_type: tokenData.token_type,
-      refresh_token: this.credentials.refresh_token, // Preserve existing refresh token
+      // Use new refresh token if provided, otherwise preserve existing one
+      refresh_token: tokenData.refresh_token || this.credentials.refresh_token,
       resource_url: tokenData.resource_url, // Include resource_url if provided
       expiry_date: Date.now() + tokenData.expires_in * 1000,
     };
 
     this.setCredentials(tokens);
+
+    // Cache the updated credentials to file
+    await cacheQwenCredentials(tokens);
+
     return responseData;
   }
 
@@ -454,9 +470,9 @@ async function authWithQwenDeviceFlow(
 
     // Ensure we have a successful authorization response
     if (!isDeviceAuthorizationSuccess(deviceAuth)) {
-      const errorData = deviceAuth.data as ErrorData;
+      const errorData = deviceAuth as ErrorData;
       throw new Error(
-        `Device authorization failed: ${errorData?.code || 'Unknown error'} - ${errorData?.details || 'No details provided'}`,
+        `Device authorization failed: ${errorData?.error || 'Unknown error'} - ${errorData?.error_description || 'No details provided'}`,
       );
     }
 
@@ -464,19 +480,17 @@ async function authWithQwenDeviceFlow(
     console.log(
       `Please visit the following URL on your phone or browser for authorization:`,
     );
-    console.log(`\n${deviceAuth.data.verification_uri_complete}\n`);
+    console.log(`\n${deviceAuth.verification_uri_complete}\n`);
 
     const showFallbackMessage = () => {
       // Emit device authorization event for UI integration
-      qwenOAuth2Events.emit(QwenOAuth2Event.AuthUri, deviceAuth.data);
+      qwenOAuth2Events.emit(QwenOAuth2Event.AuthUri, deviceAuth);
     };
 
     // If browser launch is not suppressed, try to open the URL
     if (!config.isBrowserLaunchSuppressed()) {
       try {
-        const childProcess = await open(
-          deviceAuth.data.verification_uri_complete,
-        );
+        const childProcess = await open(deviceAuth.verification_uri_complete);
 
         // IMPORTANT: Attach an error handler to the returned child process.
         // Without this, if `open` fails to spawn a process (e.g., `xdg-open` is not found
@@ -506,9 +520,9 @@ async function authWithQwenDeviceFlow(
     console.log('Waiting for authorization...\n');
 
     // Poll for the token
-    const pollInterval = 2000; // 5 seconds
+    const pollInterval = 2000; // 2 seconds
     const maxAttempts = Math.ceil(
-      deviceAuth.data.expires_in / (pollInterval / 1000),
+      deviceAuth.expires_in / (pollInterval / 1000),
     );
 
     for (let attempt = 0; attempt < maxAttempts; attempt++) {
@@ -526,13 +540,13 @@ async function authWithQwenDeviceFlow(
       try {
         console.log('polling for token...');
         const tokenResponse = await client.pollDeviceToken({
-          device_code: deviceAuth.data.device_code,
+          device_code: deviceAuth.device_code,
           code_verifier,
         });
 
         // Check if the response is successful and contains token data
         if (isDeviceTokenSuccess(tokenResponse)) {
-          const tokenData = tokenResponse.data as DeviceTokenData;
+          const tokenData = tokenResponse as DeviceTokenData;
 
           // Convert to QwenCredentials format
           const credentials: QwenCredentials = {
@@ -611,10 +625,10 @@ async function authWithQwenDeviceFlow(
         }
 
         // Handle error response
-        if (!tokenResponse.success) {
-          const errorData = tokenResponse.data as ErrorData;
+        if (isErrorResponse(tokenResponse)) {
+          const errorData = tokenResponse as ErrorData;
           throw new Error(
-            `Token polling failed: ${errorData?.code || 'Unknown error'} - ${errorData?.details || 'No details provided'}`,
+            `Token polling failed: ${errorData?.error || 'Unknown error'} - ${errorData?.error_description || 'No details provided'}`,
           );
         }
       } catch (error: unknown) {
@@ -696,6 +710,26 @@ async function cacheQwenCredentials(credentials: QwenCredentials) {
 
   const credString = JSON.stringify(credentials, null, 2);
   await fs.writeFile(filePath, credString);
+}
+
+/**
+ * Clear cached Qwen credentials from disk
+ * This is useful when credentials have expired or need to be reset
+ */
+export async function clearQwenCredentials(): Promise<void> {
+  try {
+    const filePath = getQwenCachedCredentialPath();
+    await fs.unlink(filePath);
+    console.log('Cached Qwen credentials cleared successfully.');
+  } catch (error: unknown) {
+    // If file doesn't exist or can't be deleted, we consider it cleared
+    if (error instanceof Error && 'code' in error && error.code === 'ENOENT') {
+      // File doesn't exist, already cleared
+      return;
+    }
+    // Log other errors but don't throw - clearing credentials should be non-critical
+    console.warn('Warning: Failed to clear cached Qwen credentials:', error);
+  }
 }
 
 function getQwenCachedCredentialPath(): string {

@@ -210,9 +210,9 @@ export async function createContentGenerator(
       // Create the content generator with dynamic token management
       return new QwenContentGenerator(qwenClient, config.model, gcConfig);
     } catch (error) {
-      console.error('Failed to create Qwen OAuth content generator:', error);
+      console.error('Failed to create Qwen content generator:', error);
       throw new Error(
-        `Failed to initialize Qwen OAuth: ${error instanceof Error ? error.message : String(error)}`,
+        `Failed to initialize Qwen: ${error instanceof Error ? error.message : String(error)}`,
       );
     }
   }

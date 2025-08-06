@@ -92,14 +92,10 @@ describe('QwenContentGenerator Testing Patterns', () => {
         new Error('Token expired'),
       );
       vi.mocked(mockQwenClient.refreshAccessToken).mockResolvedValue({
-        success: true,
-        request_id: 'test-request-id',
-        data: {
-          access_token: 'refreshed-token',
-          token_type: 'Bearer',
-          expires_in: 3600,
-          resource_url: 'https://new-endpoint.com',
-        },
+        access_token: 'refreshed-token',
+        token_type: 'Bearer',
+        expires_in: 3600,
+        resource_url: 'https://new-endpoint.com',
       });
 
       // Test the refresh logic
@@ -109,7 +105,7 @@ describe('QwenContentGenerator Testing Patterns', () => {
         token = result.token;
       } catch {
         const refreshResult = await mockQwenClient.refreshAccessToken();
-        token = (refreshResult.data as TokenRefreshData).access_token;
+        token = (refreshResult as TokenRefreshData).access_token;
       }
 
       expect(token).toBe('refreshed-token');
@@ -494,19 +490,15 @@ describe('QwenContentGenerator Testing Patterns', () => {
 
     it('should handle missing access token in refresh response', async () => {
       vi.mocked(mockQwenClient.refreshAccessToken).mockResolvedValue({
-        success: true,
-        request_id: 'test-request-id',
-        data: {
-          access_token: '',
-          token_type: 'Bearer',
-          expires_in: 3600,
-        } as TokenRefreshData,
-      });
+        access_token: '',
+        token_type: 'Bearer',
+        expires_in: 3600,
+      } as TokenRefreshData);
 
       let error: string | undefined;
       try {
         const result = await mockQwenClient.refreshAccessToken();
-        if (!(result.data as TokenRefreshData).access_token) {
+        if (!(result as TokenRefreshData).access_token) {
           error = 'Failed to refresh access token: no token returned';
         }
       } catch (_e) {
