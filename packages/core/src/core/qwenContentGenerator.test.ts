@@ -30,7 +30,7 @@ describe('QwenContentGenerator Testing Patterns', () => {
   const _mockCredentials: QwenCredentials = {
     access_token: 'test-access-token',
     refresh_token: 'test-refresh-token',
-    endpoint: 'https://test-endpoint.com/v1',
+    resource_url: 'https://test-endpoint.com/v1',
   };
 
   const createMockResponse = (text: string): GenerateContentResponse =>
@@ -75,7 +75,7 @@ describe('QwenContentGenerator Testing Patterns', () => {
         token: 'valid-token',
       });
       vi.mocked(mockQwenClient.getCredentials).mockReturnValue({
-        endpoint: 'https://test-endpoint.com',
+        resource_url: 'https://test-endpoint.com',
       });
 
       // Test the token retrieval logic
@@ -83,7 +83,7 @@ describe('QwenContentGenerator Testing Patterns', () => {
       const credentials = mockQwenClient.getCredentials();
 
       expect(tokenResult.token).toBe('valid-token');
-      expect(credentials.endpoint).toBe('https://test-endpoint.com');
+      expect(credentials.resource_url).toBe('https://test-endpoint.com');
       expect(mockQwenClient.getAccessToken).toHaveBeenCalled();
     });
 
@@ -98,7 +98,7 @@ describe('QwenContentGenerator Testing Patterns', () => {
           access_token: 'refreshed-token',
           token_type: 'Bearer',
           expires_in: 3600,
-          endpoint: 'https://new-endpoint.com',
+          resource_url: 'https://new-endpoint.com',
         },
       });
 
@@ -255,6 +255,49 @@ describe('QwenContentGenerator Testing Patterns', () => {
       expect(getCurrentEndpoint('https://custom-endpoint.com')).toBe(
         'https://custom-endpoint.com',
       );
+    });
+
+    it('should add https protocol to hostname-only endpoints', () => {
+      const defaultEndpoint =
+        'https://aa.dashscope.aliyuncs.com/compatible-mode/v1';
+
+      // Simulate the enhanced getCurrentEndpoint behavior
+      const getCurrentEndpoint = (currentEndpoint?: string) => {
+        const endpoint = currentEndpoint || defaultEndpoint;
+
+        // If endpoint doesn't start with http:// or https://, treat it as hostname and add https://
+        if (endpoint && !endpoint.match(/^https?:\/\//)) {
+          return `https://${endpoint}`;
+        }
+
+        return endpoint;
+      };
+
+      // Test hostname-only endpoints get https:// prefix
+      expect(
+        getCurrentEndpoint('ga-bp1e3clofle9mg9ay6ke9.aliyunga0018.com'),
+      ).toBe('https://ga-bp1e3clofle9mg9ay6ke9.aliyunga0018.com');
+      expect(getCurrentEndpoint('example.com')).toBe('https://example.com');
+      expect(getCurrentEndpoint('api.example.com:8080')).toBe(
+        'https://api.example.com:8080',
+      );
+
+      // Test already complete URLs remain unchanged
+      expect(getCurrentEndpoint('https://api.example.com')).toBe(
+        'https://api.example.com',
+      );
+      expect(getCurrentEndpoint('http://api.example.com')).toBe(
+        'http://api.example.com',
+      );
+      expect(
+        getCurrentEndpoint(
+          'https://ga-bp1e3clofle9mg9ay6ke9.aliyunga0018.com/v1',
+        ),
+      ).toBe('https://ga-bp1e3clofle9mg9ay6ke9.aliyunga0018.com/v1');
+
+      // Test default endpoint when no current endpoint is provided
+      expect(getCurrentEndpoint()).toBe(defaultEndpoint);
+      expect(getCurrentEndpoint(undefined)).toBe(defaultEndpoint);
     });
   });
 

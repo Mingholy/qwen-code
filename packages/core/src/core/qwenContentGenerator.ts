@@ -22,7 +22,7 @@ import {
 
 // Default fallback base URL if no endpoint is provided
 const DEFAULT_QWEN_BASE_URL =
-  'https://aa.dashscope.aliyuncs.com/compatible-mode/v1';
+  'https://dashscope.aliyuncs.com/compatible-mode/v1';
 
 /**
  * Qwen Content Generator that uses Qwen OAuth tokens with automatic refresh
@@ -46,9 +46,18 @@ export class QwenContentGenerator extends OpenAIContentGenerator {
 
   /**
    * Get the current endpoint URL
+   * Ensures the endpoint has a proper protocol scheme
    */
   private getCurrentEndpoint(): string {
-    return this.currentEndpoint || DEFAULT_QWEN_BASE_URL;
+    const endpoint = this.currentEndpoint || DEFAULT_QWEN_BASE_URL;
+    const suffix = '/compatible-mode/v1';
+
+    // If endpoint doesn't start with http:// or https://, treat it as hostname and add https://
+    if (endpoint && !endpoint.match(/^https?:\/\//)) {
+      return `https://${endpoint}${suffix}`;
+    }
+
+    return `${endpoint}${suffix}`;
   }
 
   /**
@@ -199,8 +208,8 @@ export class QwenContentGenerator extends OpenAIContentGenerator {
         this.currentToken = token;
         // Also update endpoint from current credentials
         const credentials = this.qwenClient.getCredentials();
-        if (credentials.endpoint) {
-          this.currentEndpoint = credentials.endpoint;
+        if (credentials.resource_url) {
+          this.currentEndpoint = credentials.resource_url;
         }
         return token;
       }
@@ -254,9 +263,9 @@ export class QwenContentGenerator extends OpenAIContentGenerator {
       this.currentToken = tokenData.access_token;
 
       // Update endpoint if provided
-      if (tokenData.endpoint) {
-        this.currentEndpoint = tokenData.endpoint;
-        console.log('Qwen endpoint updated:', tokenData.endpoint);
+      if (tokenData.resource_url) {
+        this.currentEndpoint = tokenData.resource_url;
+        console.log('Qwen endpoint updated:', tokenData.resource_url);
       }
 
       console.log('Qwen access token refreshed successfully');

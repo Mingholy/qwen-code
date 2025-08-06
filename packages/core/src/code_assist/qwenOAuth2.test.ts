@@ -569,7 +569,7 @@ describe('QwenOAuth2Client', () => {
           access_token: 'new-access-token',
           token_type: 'Bearer',
           expires_in: 3600,
-          endpoint: 'test-endpoint',
+          resource_url: 'test-endpoint',
         },
       };
 

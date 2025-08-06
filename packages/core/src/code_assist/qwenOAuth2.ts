@@ -97,7 +97,7 @@ export interface QwenCredentials {
   id_token?: string;
   expiry_date?: number;
   token_type?: string;
-  endpoint?: string;
+  resource_url?: string;
 }
 
 /**
@@ -190,7 +190,7 @@ export interface TokenRefreshData {
   access_token: string;
   token_type: string;
   expires_in: number;
-  endpoint?: string;
+  resource_url?: string;
 }
 
 /**
@@ -372,7 +372,7 @@ export class QwenOAuth2Client implements IQwenOAuth2Client {
       access_token: tokenData.access_token,
       token_type: tokenData.token_type,
       refresh_token: this.credentials.refresh_token, // Preserve existing refresh token
-      endpoint: tokenData.endpoint, // Include endpoint if provided
+      resource_url: tokenData.resource_url, // Include resource_url if provided
       expiry_date: Date.now() + tokenData.expires_in * 1000,
     };
 
@@ -468,7 +468,7 @@ async function authWithQwenDeviceFlow(
 
     const showFallbackMessage = () => {
       // Emit device authorization event for UI integration
-      qwenOAuth2Events.emit(QwenOAuth2Event.AuthUri, deviceAuth);
+      qwenOAuth2Events.emit(QwenOAuth2Event.AuthUri, deviceAuth.data);
     };
 
     // If browser launch is not suppressed, try to open the URL
@@ -506,7 +506,7 @@ async function authWithQwenDeviceFlow(
     console.log('Waiting for authorization...\n');
 
     // Poll for the token
-    const pollInterval = 5000; // 5 seconds
+    const pollInterval = 2000; // 5 seconds
     const maxAttempts = Math.ceil(
       deviceAuth.data.expires_in / (pollInterval / 1000),
     );
@@ -539,7 +539,7 @@ async function authWithQwenDeviceFlow(
             access_token: tokenData.access_token!, // Safe to assert as non-null due to isDeviceTokenSuccess check
             refresh_token: tokenData.refresh_token || undefined,
             token_type: tokenData.token_type,
-            endpoint: tokenData.endpoint,
+            resource_url: tokenData.resource_url,
             expiry_date: tokenData.expires_in
               ? Date.now() + tokenData.expires_in * 1000
               : undefined,
