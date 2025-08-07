@@ -76,6 +76,8 @@ This will allow you to reconfigure your authentication method without restarting
 
 You can create a **`.qwen/.env`** file in your project directory or in your home directory. Creating a plain **`.env`** file also works, but `.qwen/.env` is recommended to keep Qwen Code variables isolated from other tools.
 
+**Important:** Some environment variables (like `DEBUG` and `DEBUG_MODE`) are automatically excluded from project `.env` files to prevent interference with qwen-code behavior. Use `.qwen/.env` files for qwen-code specific variables.
+
 Qwen Code automatically loads environment variables from the **first** `.env` file it finds, using the following search order:
 
 1. Starting in the **current directory** and moving upward toward `/`, for each directory it checks:
