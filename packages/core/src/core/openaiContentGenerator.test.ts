@@ -705,10 +705,12 @@ describe('OpenAIContentGenerator', () => {
       try {
         await generator.generateContent(request);
         expect.fail('Expected error to be thrown');
-      } catch (error: any) {
+      } catch (error: unknown) {
         // Should throw the original error object with status preserved
-        expect(error.message).toBe('Rate limit exceeded');
-        expect(error.status).toBe(429);
+        expect((error as Error & { status: number }).message).toBe(
+          'Rate limit exceeded',
+        );
+        expect((error as Error & { status: number }).status).toBe(429);
       }
     });
   });

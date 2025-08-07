@@ -804,7 +804,9 @@ describe('QwenOAuth2Client - Additional Error Scenarios', () => {
       });
 
       // Access private method for testing
-      const isValid = (client as any).isTokenValid();
+      const isValid = (
+        client as QwenOAuth2Client & { isTokenValid(): boolean }
+      ).isTokenValid();
       expect(isValid).toBe(false);
     });
   });
@@ -960,7 +962,7 @@ describe('getQwenOAuthClient - Enhanced Error Scenarios', () => {
 describe('authWithQwenDeviceFlow - Comprehensive Testing', () => {
   let mockConfig: Config;
   let originalFetch: typeof global.fetch;
-  let client: QwenOAuth2Client;
+  let _client: QwenOAuth2Client;
 
   beforeEach(() => {
     mockConfig = {
@@ -968,7 +970,7 @@ describe('authWithQwenDeviceFlow - Comprehensive Testing', () => {
       isBrowserLaunchSuppressed: vi.fn().mockReturnValue(false),
     } as unknown as Config;
 
-    client = new QwenOAuth2Client({ proxy: undefined });
+    _client = new QwenOAuth2Client({ proxy: undefined });
     originalFetch = global.fetch;
     global.fetch = vi.fn();
 
@@ -1203,7 +1205,9 @@ describe('Browser Launch and Error Handling', () => {
         }
       }),
     };
-    vi.mocked(open.default).mockResolvedValue(mockChildProcess as any);
+    vi.mocked(open.default).mockResolvedValue(
+      mockChildProcess as ReturnType<typeof open.default>,
+    );
 
     const mockAuthResponse = {
       ok: true,
