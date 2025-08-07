@@ -17,10 +17,25 @@
 
 Qwen Code is a powerful command-line AI workflow tool adapted from [**Gemini CLI**](https://github.com/google-gemini/gemini-cli) ([details](./README.gemini.md)), specifically optimized for [Qwen3-Coder](https://github.com/QwenLM/Qwen3-Coder) models. It enhances your development workflow with advanced code understanding, automated tasks, and intelligent assistance.
 
+## 💡 Free Options Available
+
+Get started with Qwen Code at no cost using any of these free options:
+
+### 🔥 Qwen OAuth (Recommended)
+- **2,000 requests per day** with no token limits
+- **60 requests per minute** rate limit
+- Simply run `qwen` and authenticate with your qwen.ai account
+- Automatic credential management and refresh
+- No API key setup required
+
+### 🌏 Regional Free Tiers
+- **Mainland China**: ModelScope offers **2,000 free API calls per day**
+- **International**: OpenRouter provides **up to 1,000 free API calls per day** worldwide
+
+For detailed setup instructions, see [Authorization](#authorization).
+
 > [!WARNING]
 > **Token Usage Notice**: Qwen Code may issue multiple API calls per cycle, resulting in higher token usage (similar to Claude Code). We're actively optimizing API efficiency.
->
-> 💡 **Free Option**: ModelScope provides **2,000 free API calls per day** for users in mainland China. OpenRouter offers up to **1,000 free API calls per day** worldwide. For setup instructions, see [API Configuration](#api-configuration).
 
 ## Key Features
 
@@ -90,21 +105,29 @@ Create or edit `.qwen/settings.json` in your home directory:
 
 ### Authorization
 
-Qwen Code supports two authorization methods to access AI models:
+Choose your preferred authentication method based on your needs:
 
-#### 1. Qwen OAuth (Recommended)
+#### 1. Qwen OAuth (🚀 Recommended - Start in 30 seconds)
 
-Login with your Qwen.ai account for seamless access to Qwen models:
+The easiest way to get started - completely free with generous quotas:
 
-1. **Interactive Login**: When you first run `qwen`, you'll be prompted to authenticate
-2. **Web Browser Authentication**: The CLI will open your browser and direct you to qwen.ai for login
-3. **Credential Caching**: Your credentials are cached locally for subsequent runs
+```bash
+# Just run this command and follow the browser authentication
+qwen
+```
 
-**Quota & Pricing:**
+**What happens:**
+1. **Instant Setup**: CLI opens your browser automatically  
+2. **One-Click Login**: Authenticate with your qwen.ai account
+3. **Automatic Management**: Credentials cached locally for future use
+4. **No Configuration**: Zero setup required - just start coding!
 
-- **Quota:** 60 requests/minute, 2,000 requests/day
-- **Cost:** Free for individual users
-- **Notes:** A specific quota for different models is not specified; model fallback may occur to preserve shared experience quality.
+**Free Tier Benefits:**
+- ✅ **2,000 requests/day** (no token counting needed)
+- ✅ **60 requests/minute** rate limit
+- ✅ **Automatic credential refresh** 
+- ✅ **Zero cost** for individual users
+- ℹ️ **Note**: Model fallback may occur to maintain service quality
 
 #### 2. OpenAI-Compatible API
 
