@@ -22,7 +22,9 @@ const QWEN_OAUTH_DEVICE_CODE_ENDPOINT = `${QWEN_OAUTH_BASE_URL}/api/v1/oauth2/de
 const QWEN_OAUTH_TOKEN_ENDPOINT = `${QWEN_OAUTH_BASE_URL}/api/v1/oauth2/token`;
 
 // OAuth Client Configuration
-const QWEN_OAUTH_CLIENT_ID = '93a239d6ed36412c8c442e91b60fa305';
+// const QWEN_OAUTH_CLIENT_ID = '93a239d6ed36412c8c442e91b60fa305';
+const QWEN_OAUTH_CLIENT_ID = 'f0304373b74a44d2b584a3fb70ca9e56;';
+
 const QWEN_OAUTH_SCOPE = 'openid profile email model.completion';
 
 // File System Configuration
