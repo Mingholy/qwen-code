@@ -653,7 +653,7 @@ describe('OpenAIContentGenerator', () => {
       };
 
       await expect(generator.embedContent(request)).rejects.toThrow(
-        'OpenAI API error: Embedding failed',
+        'Embedding failed',
       );
     });
   });
@@ -669,7 +669,7 @@ describe('OpenAIContentGenerator', () => {
       };
 
       await expect(generator.generateContent(request)).rejects.toThrow(
-        'OpenAI API error: Invalid API key',
+        'Invalid API key',
       );
     });
 
@@ -687,6 +687,28 @@ describe('OpenAIContentGenerator', () => {
       } catch (error) {
         // Error should be thrown but token estimation should have been attempted
         expect(error).toBeInstanceOf(Error);
+      }
+    });
+
+    it('should preserve error status codes like 429', async () => {
+      // Create an error object with status property like OpenAI SDK would
+      const apiError = Object.assign(new Error('Rate limit exceeded'), {
+        status: 429,
+      });
+      mockOpenAIClient.chat.completions.create.mockRejectedValue(apiError);
+
+      const request: GenerateContentParameters = {
+        contents: [{ role: 'user', parts: [{ text: 'Hello' }] }],
+        model: 'gpt-4',
+      };
+
+      try {
+        await generator.generateContent(request);
+        expect.fail('Expected error to be thrown');
+      } catch (error: any) {
+        // Should throw the original error object with status preserved
+        expect(error.message).toBe('Rate limit exceeded');
+        expect(error.status).toBe(429);
       }
     });
   });
@@ -962,7 +984,7 @@ describe('OpenAIContentGenerator', () => {
       };
 
       await expect(generator.generateContentStream(request)).rejects.toThrow(
-        'OpenAI API error: Streaming setup failed',
+        'Streaming setup failed',
       );
     });
 

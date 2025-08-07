@@ -128,7 +128,8 @@ describe('OpenAIContentGenerator Timeout Handling', () => {
               : String(thrownError);
           expect(errorMessage).not.toMatch(/timeout after \d+s/);
           expect(errorMessage).not.toMatch(/Troubleshooting tips:/);
-          expect(errorMessage).toMatch(/OpenAI API error:/);
+          // Should preserve the original error message
+          expect(errorMessage).toMatch(new RegExp(error.message));
         }
       }
     });
@@ -161,7 +162,7 @@ describe('OpenAIContentGenerator Timeout Handling', () => {
       };
 
       await expect(generator.generateContent(request)).rejects.toThrow(
-        'OpenAI API error: Invalid API key',
+        'Invalid API key',
       );
     });
 

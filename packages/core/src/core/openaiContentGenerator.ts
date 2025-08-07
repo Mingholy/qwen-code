@@ -311,7 +311,7 @@ export class OpenAIContentGenerator implements ContentGenerator {
         );
       }
 
-      throw new Error(`OpenAI API error: ${errorMessage}`);
+      throw error;
     }
   }
 
@@ -525,7 +525,7 @@ export class OpenAIContentGenerator implements ContentGenerator {
         );
       }
 
-      throw new Error(`OpenAI API error: ${errorMessage}`);
+      throw error;
     }
   }
 

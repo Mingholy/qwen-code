@@ -146,6 +146,7 @@ export interface DeviceTokenData {
  */
 export interface DeviceTokenPendingData {
   status: 'pending';
+  slowDown?: boolean; // Indicates if client should increase polling interval
 }
 
 /**
@@ -327,14 +328,46 @@ export class QwenOAuth2Client implements IQwenOAuth2Client {
     });
 
     if (!response.ok) {
-      const errorData = await response.text();
-      // Create a custom error that includes the status code for better handling
-      const error = new Error(
-        `Device token poll failed: ${response.status} ${response.statusText}. Response: ${errorData}`,
-      );
-      // Add status code as a property for easier checking
-      (error as Error & { status?: number }).status = response.status;
-      throw error;
+      // Parse the response as JSON to check for OAuth RFC 8628 standard errors
+      try {
+        const errorData = (await response.json()) as ErrorData;
+
+        // According to OAuth RFC 8628, these errors should be returned as HTTP 400
+        // and handled as part of the normal polling flow, not as real errors
+        if (response.status === 400) {
+          switch (errorData.error) {
+            case 'authorization_pending':
+              // User has not yet approved the authorization request. Continue polling.
+              return { status: 'pending' } as DeviceTokenPendingData;
+
+            case 'slow_down':
+              // Client is polling too frequently. Return pending with slowDown flag.
+              return {
+                status: 'pending',
+                slowDown: true,
+              } as DeviceTokenPendingData;
+
+            default:
+              // For other 400 errors (access_denied, expired_token, etc.), throw as real errors
+              break;
+          }
+        }
+
+        // For other errors, throw with proper error information
+        const error = new Error(
+          `Device token poll failed: ${errorData.error || 'Unknown error'} - ${errorData.error_description || 'No details provided'}`,
+        );
+        (error as Error & { status?: number }).status = response.status;
+        throw error;
+      } catch (_parseError) {
+        // If JSON parsing fails, fall back to text response
+        const errorData = await response.text();
+        const error = new Error(
+          `Device token poll failed: ${response.status} ${response.statusText}. Response: ${errorData}`,
+        );
+        (error as Error & { status?: number }).status = response.status;
+        throw error;
+      }
     }
 
     return (await response.json()) as DeviceTokenResponse;
@@ -577,7 +610,7 @@ async function authWithQwenDeviceFlow(
     console.log('Waiting for authorization...\n');
 
     // Poll for the token
-    const pollInterval = 2000; // 2 seconds
+    let pollInterval = 2000; // 2 seconds, can be increased if slow_down is received
     const maxAttempts = Math.ceil(
       deviceAuth.expires_in / (pollInterval / 1000),
     );
@@ -635,6 +668,16 @@ async function authWithQwenDeviceFlow(
 
         // Check if the response is pending
         if (isDeviceTokenPending(tokenResponse)) {
+          const pendingData = tokenResponse as DeviceTokenPendingData;
+
+          // Handle slow_down error by increasing poll interval
+          if (pendingData.slowDown) {
+            pollInterval = Math.min(pollInterval * 1.5, 10000); // Increase by 50%, max 10 seconds
+            console.log(
+              `\nServer requested to slow down, increasing poll interval to ${pollInterval}ms`,
+            );
+          }
+
           // Emit polling progress event
           qwenOAuth2Events.emit(
             QwenOAuth2Event.AuthProgress,
