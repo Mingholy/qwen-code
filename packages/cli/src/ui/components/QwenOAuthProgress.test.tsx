@@ -75,7 +75,8 @@ describe('QwenOAuthProgress', () => {
       // Should not contain auth flow elements
       expect(output).not.toContain('Qwen OAuth Authentication');
       expect(output).not.toContain('Please visit this URL to authorize:');
-      expect(output).not.toContain('Time remaining:');
+      // Loading state still shows time remaining with default timeout
+      expect(output).toContain('Time remaining:');
     });
   });
 

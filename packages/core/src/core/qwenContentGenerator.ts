@@ -51,14 +51,14 @@ export class QwenContentGenerator extends OpenAIContentGenerator {
   private getCurrentEndpoint(): string {
     const baseEndpoint = this.currentEndpoint || DEFAULT_QWEN_BASE_URL;
     const suffix = '/v1';
-    
+
     // Normalize the URL: add protocol if missing, ensure /v1 suffix
-    const normalizedUrl = baseEndpoint.startsWith('http') 
-      ? baseEndpoint 
+    const normalizedUrl = baseEndpoint.startsWith('http')
+      ? baseEndpoint
       : `https://${baseEndpoint}`;
-      
-    return normalizedUrl.endsWith(suffix) 
-      ? normalizedUrl 
+
+    return normalizedUrl.endsWith(suffix)
+      ? normalizedUrl
       : `${normalizedUrl}${suffix}`;
   }
 
