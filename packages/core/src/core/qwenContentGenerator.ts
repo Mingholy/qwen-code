@@ -63,6 +63,17 @@ export class QwenContentGenerator extends OpenAIContentGenerator {
   }
 
   /**
+   * Override error logging behavior to suppress auth errors during token refresh
+   */
+  protected shouldSuppressErrorLogging(
+    error: unknown,
+    _request: GenerateContentParameters,
+  ): boolean {
+    // Suppress logging for authentication errors that we handle with token refresh
+    return this.isAuthError(error);
+  }
+
+  /**
    * Override to use dynamic token and endpoint
    */
   async generateContent(

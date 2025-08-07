@@ -23,7 +23,7 @@ const QWEN_OAUTH_TOKEN_ENDPOINT = `${QWEN_OAUTH_BASE_URL}/api/v1/oauth2/token`;
 
 // OAuth Client Configuration
 // const QWEN_OAUTH_CLIENT_ID = '93a239d6ed36412c8c442e91b60fa305';
-const QWEN_OAUTH_CLIENT_ID = 'f0304373b74a44d2b584a3fb70ca9e56;';
+const QWEN_OAUTH_CLIENT_ID = 'f0304373b74a44d2b584a3fb70ca9e56';
 
 const QWEN_OAUTH_SCOPE = 'openid profile email model.completion';
 
@@ -442,7 +442,6 @@ export async function getQwenOAuthClient(
       'timeout',
       'Authentication timed out. Please try again or select a different authentication method.',
     );
-    console.error('\nQwen OAuth authentication failed or timed out.');
     throw new Error('Qwen OAuth authentication failed or timed out');
   }
 
@@ -648,7 +647,6 @@ async function authWithQwenDeviceFlow(
           // Emit error event
           qwenOAuth2Events.emit(QwenOAuth2Event.AuthProgress, 'error', message);
 
-          console.error('\n' + message);
           return false;
         }
 
@@ -656,8 +654,6 @@ async function authWithQwenDeviceFlow(
 
         // Emit error event
         qwenOAuth2Events.emit(QwenOAuth2Event.AuthProgress, 'error', message);
-
-        console.error('\n' + message);
 
         // Check for cancellation before waiting
         if (isCancelled) {

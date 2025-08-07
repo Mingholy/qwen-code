@@ -140,6 +140,19 @@ export class OpenAIContentGenerator implements ContentGenerator {
   }
 
   /**
+   * Hook for subclasses to customize error handling behavior
+   * @param error The error that occurred
+   * @param request The original request
+   * @returns true if error logging should be suppressed, false otherwise
+   */
+  protected shouldSuppressErrorLogging(
+    _error: unknown,
+    _request: GenerateContentParameters,
+  ): boolean {
+    return false; // Default behavior: never suppress error logging
+  }
+
+  /**
    * Check if an error is a timeout error
    */
   private isTimeoutError(error: unknown): boolean {
@@ -282,7 +295,10 @@ export class OpenAIContentGenerator implements ContentGenerator {
         );
       }
 
-      console.error('OpenAI API Error:', errorMessage);
+      // Allow subclasses to suppress error logging for specific scenarios
+      if (!this.shouldSuppressErrorLogging(error, request)) {
+        console.error('OpenAI API Error:', errorMessage);
+      }
 
       // Provide helpful timeout-specific error message
       if (isTimeoutError) {
@@ -493,7 +509,10 @@ export class OpenAIContentGenerator implements ContentGenerator {
       );
       logApiResponse(this.config, errorEvent);
 
-      console.error('OpenAI API Streaming Error:', errorMessage);
+      // Allow subclasses to suppress error logging for specific scenarios
+      if (!this.shouldSuppressErrorLogging(error, request)) {
+        console.error('OpenAI API Streaming Error:', errorMessage);
+      }
 
       // Provide helpful timeout-specific error message for streaming setup
       if (isTimeoutError) {
