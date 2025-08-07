@@ -221,12 +221,12 @@ describe('Type Guards', () => {
 
 describe('QwenOAuth2Client', () => {
   let client: QwenOAuth2Client;
-  let mockConfig: Config;
+  let _mockConfig: Config;
   let originalFetch: typeof global.fetch;
 
   beforeEach(() => {
     // Setup mock config
-    mockConfig = {
+    _mockConfig = {
       getQwenClientId: vi.fn().mockReturnValue('test-client-id'),
       isBrowserLaunchSuppressed: vi.fn().mockReturnValue(false),
     } as unknown as Config;

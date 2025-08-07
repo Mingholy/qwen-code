@@ -114,14 +114,21 @@ export class OpenAIContentGenerator implements ContentGenerator {
       timeoutConfig.maxRetries = contentGeneratorConfig.maxRetries;
     }
 
+    // Set up User-Agent header (same format as contentGenerator.ts)
+    const version = process.env.CLI_VERSION || process.version;
+    const userAgent = `QwenCode/${version} (${process.platform}; ${process.arch})`;
+
     // Check if using OpenRouter and add required headers
     const isOpenRouter = baseURL.includes('openrouter.ai');
-    const defaultHeaders = isOpenRouter
-      ? {
-          'HTTP-Referer': 'https://github.com/QwenLM/qwen-code.git',
-          'X-Title': 'Qwen Code',
-        }
-      : undefined;
+    const defaultHeaders = {
+      'User-Agent': userAgent,
+      ...(isOpenRouter
+        ? {
+            'HTTP-Referer': 'https://github.com/QwenLM/qwen-code.git',
+            'X-Title': 'Qwen Code',
+          }
+        : {}),
+    };
 
     this.client = new OpenAI({
       apiKey,

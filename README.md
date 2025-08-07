@@ -101,6 +101,7 @@ Login with your Qwen.ai account for seamless access to Qwen models:
 3. **Credential Caching**: Your credentials are cached locally for subsequent runs
 
 **Quota & Pricing:**
+
 - **Quota:** 60 requests/minute, 2,000 requests/day
 - **Cost:** Free for individual users
 - **Notes:** A specific quota for different models is not specified; model fallback may occur to preserve shared experience quality.
@@ -112,6 +113,7 @@ Use API keys for OpenAI or other compatible providers:
 **Configuration Methods:**
 
 1. **Environment Variables**
+
    ```bash
    export OPENAI_API_KEY="your_api_key_here"
    export OPENAI_BASE_URL="your_api_endpoint"

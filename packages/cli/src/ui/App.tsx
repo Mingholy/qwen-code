@@ -239,7 +239,7 @@ const App = ({ config, settings, startupWarnings = [], version }: AppProps) => {
     isQwenAuth,
     cancelQwenAuth,
     authStatus,
-    authMessage
+    authMessage,
   } = useQwenAuth(settings, isAuthenticating);
 
   useEffect(() => {
@@ -269,13 +269,22 @@ const App = ({ config, settings, startupWarnings = [], version }: AppProps) => {
   useEffect(() => {
     if (isQwenAuth && authStatus === 'timeout') {
       setAuthError(
-        authMessage || 'Qwen OAuth authentication timed out. Please try again or select a different authentication method.',
+        authMessage ||
+          'Qwen OAuth authentication timed out. Please try again or select a different authentication method.',
       );
       cancelQwenAuth();
       cancelAuthentication();
       openAuthDialog();
     }
-  }, [isQwenAuth, authStatus, authMessage, cancelQwenAuth, cancelAuthentication, openAuthDialog, setAuthError]);
+  }, [
+    isQwenAuth,
+    authStatus,
+    authMessage,
+    cancelQwenAuth,
+    cancelAuthentication,
+    openAuthDialog,
+    setAuthError,
+  ]);
 
   const {
     isEditorDialogOpen,
@@ -966,7 +975,7 @@ const App = ({ config, settings, startupWarnings = [], version }: AppProps) => {
               <LoadingIndicator
                 thought={
                   streamingState === StreamingState.WaitingForConfirmation ||
-                    config.getAccessibility()?.disableLoadingPhrases
+                  config.getAccessibility()?.disableLoadingPhrases
                     ? undefined
                     : thought
                 }

@@ -14,6 +14,7 @@ Qwen Code supports two main authentication methods to access AI models. Choose t
       - No manual API key management required
 
     **Getting Started:**
+
     ```bash
     # Start Qwen Code and follow the OAuth flow
     qwen
@@ -27,31 +28,33 @@ Qwen Code supports two main authentication methods to access AI models. Choose t
     - 60 requests per minute
     - 2,000 requests per day
     - Token usage is not applicable
-    
+
     **Cost:** Free
-    
+
     **Notes:** A specific quota for different models is not specified; model fallback may occur to preserve shared experience quality.
 
 2.  **<a id="openai-api"></a>OpenAI-Compatible API:**
     - Use API keys for OpenAI or other compatible providers.
     - This method allows you to use various AI models through API keys.
-    
+
     **Configuration Methods:**
 
     a) **Environment Variables:**
-       ```bash
-       export OPENAI_API_KEY="your_api_key_here"
-       export OPENAI_BASE_URL="your_api_endpoint"  # Optional
-       export OPENAI_MODEL="your_model_choice"     # Optional
-       ```
+
+    ```bash
+    export OPENAI_API_KEY="your_api_key_here"
+    export OPENAI_BASE_URL="your_api_endpoint"  # Optional
+    export OPENAI_MODEL="your_model_choice"     # Optional
+    ```
 
     b) **Project `.env` File:**
-       Create a `.env` file in your project root:
-       ```env
-       OPENAI_API_KEY=your_api_key_here
-       OPENAI_BASE_URL=your_api_endpoint
-       OPENAI_MODEL=your_model_choice
-       ```
+    Create a `.env` file in your project root:
+
+    ```env
+    OPENAI_API_KEY=your_api_key_here
+    OPENAI_BASE_URL=your_api_endpoint
+    OPENAI_MODEL=your_model_choice
+    ```
 
     **Supported Providers:**
     - OpenAI (https://platform.openai.com/api-keys)
@@ -127,6 +130,7 @@ OpenAI-compatible API method if configured:
     - The CLI will use these credentials to authenticate with the API provider.
 
 **Example for headless environments:**
+
 ```bash
 export OPENAI_API_KEY="your-api-key"
 export OPENAI_BASE_URL="https://api-inference.modelscope.cn/v1"
