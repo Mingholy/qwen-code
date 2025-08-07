@@ -43,6 +43,3 @@ packages/vscode-ide-companion/*.vsix
 # Qwen Code Configs
 .qwen/
 logs/
-
-# Claude Code Configs
-.claude/

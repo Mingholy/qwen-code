@@ -428,6 +428,8 @@ export async function getQwenOAuthClient(
   // If there are cached creds on disk, they always take precedence
   if (await loadCachedQwenCredentials(client)) {
     console.log('Loaded cached Qwen credentials.');
+
+    await client.refreshAccessToken();
     return client;
   }
 
