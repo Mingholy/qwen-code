@@ -239,9 +239,7 @@ describe('OpenAIContentGenerator Timeout Handling', () => {
         timeout: 120000,
         maxRetries: 3,
         defaultHeaders: {
-          'User-Agent': expect.stringMatching(
-            /^QwenCode\/.*\(darwin; arm64\)$/,
-          ),
+          'User-Agent': expect.stringMatching(/^QwenCode/),
         },
       });
     });
@@ -262,9 +260,7 @@ describe('OpenAIContentGenerator Timeout Handling', () => {
         timeout: 300000,
         maxRetries: 5,
         defaultHeaders: {
-          'User-Agent': expect.stringMatching(
-            /^QwenCode\/.*\(darwin; arm64\)$/,
-          ),
+          'User-Agent': expect.stringMatching(/^QwenCode/),
         },
       });
     });
@@ -282,9 +278,7 @@ describe('OpenAIContentGenerator Timeout Handling', () => {
         timeout: 120000, // default
         maxRetries: 3, // default
         defaultHeaders: {
-          'User-Agent': expect.stringMatching(
-            /^QwenCode\/.*\(darwin; arm64\)$/,
-          ),
+          'User-Agent': expect.stringMatching(/^QwenCode/),
         },
       });
     });
