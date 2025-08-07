@@ -88,14 +88,30 @@ Create or edit `.qwen/settings.json` in your home directory:
 
 > 📝 **Note**: Session token limit applies to a single conversation, not cumulative API calls.
 
-### API Configuration
+### Authorization
 
-Qwen Code supports multiple API providers. You can configure your API key through environment variables or a `.env` file in your project root.
+Qwen Code supports two authorization methods to access AI models:
 
-#### Configuration Methods
+#### 1. Qwen OAuth (Recommended)
+
+Login with your Qwen.ai account for seamless access to Qwen models:
+
+1. **Interactive Login**: When you first run `qwen`, you'll be prompted to authenticate
+2. **Web Browser Authentication**: The CLI will open your browser and direct you to qwen.ai for login
+3. **Credential Caching**: Your credentials are cached locally for subsequent runs
+
+**Quota & Pricing:**
+- **Quota:** 60 requests/minute, 2,000 requests/day
+- **Cost:** Free for individual users
+- **Notes:** A specific quota for different models is not specified; model fallback may occur to preserve shared experience quality.
+
+#### 2. OpenAI-Compatible API
+
+Use API keys for OpenAI or other compatible providers:
+
+**Configuration Methods:**
 
 1. **Environment Variables**
-
    ```bash
    export OPENAI_API_KEY="your_api_key_here"
    export OPENAI_BASE_URL="your_api_endpoint"
@@ -110,7 +126,7 @@ Qwen Code supports multiple API providers. You can configure your API key throug
    OPENAI_MODEL=your_model_choice
    ```
 
-#### API Provider Options
+**API Provider Options**
 
 > ⚠️ **Regional Notice:**
 >
@@ -286,6 +302,8 @@ qwen
 ## Development & Contributing
 
 See [CONTRIBUTING.md](./CONTRIBUTING.md) to learn how to contribute to the project.
+
+For detailed authentication setup, see the [authentication guide](./docs/cli/authentication.md).
 
 ## Troubleshooting
 
