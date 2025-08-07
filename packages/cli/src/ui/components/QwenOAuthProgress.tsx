@@ -7,6 +7,7 @@
 import React, { useState, useEffect } from 'react';
 import { Box, Text, useInput } from 'ink';
 import Spinner from 'ink-spinner';
+import Link from 'ink-link';
 import qrcode from 'qrcode-terminal';
 import { Colors } from '../colors.js';
 import { DeviceAuthorizationInfo } from '../hooks/useQwenAuth.js';
@@ -167,18 +168,11 @@ export function QwenOAuthProgress({
       <Box marginTop={1}>
         <Text>Please visit this URL to authorize:</Text>
       </Box>
-
-      <Box
-        marginTop={1}
-        borderStyle="single"
-        borderColor={Colors.Gray}
-        padding={1}
-      >
+      <Link url={deviceAuth.verification_uri_complete} fallback={false}>
         <Text color={Colors.AccentGreen} bold>
           {deviceAuth.verification_uri_complete}
         </Text>
-      </Box>
-
+      </Link>
       {qrCodeData && (
         <>
           <Box marginTop={1}>

@@ -478,6 +478,9 @@ async function authWithQwenDeviceFlow(
       );
     }
 
+    // Emit device authorization event for UI integration immediately
+    qwenOAuth2Events.emit(QwenOAuth2Event.AuthUri, deviceAuth);
+
     console.log('\n=== Qwen OAuth Device Authorization ===');
     console.log(
       `Please visit the following URL on your phone or browser for authorization:`,
@@ -485,8 +488,7 @@ async function authWithQwenDeviceFlow(
     console.log(`\n${deviceAuth.verification_uri_complete}\n`);
 
     const showFallbackMessage = () => {
-      // Emit device authorization event for UI integration
-      qwenOAuth2Events.emit(QwenOAuth2Event.AuthUri, deviceAuth);
+      // Fallback message for console output
     };
 
     // If browser launch is not suppressed, try to open the URL
