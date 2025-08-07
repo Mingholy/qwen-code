@@ -31,8 +31,6 @@ export function QwenOAuthProgress({
   const [timeRemaining, setTimeRemaining] = useState<number>(defaultTimeout);
   const [dots, setDots] = useState<string>('');
   const [qrCodeData, setQrCodeData] = useState<string | null>(null);
-  const [globalTimeRemaining, setGlobalTimeRemaining] =
-    useState<number>(defaultTimeout);
 
   useInput((input, key) => {
     if (authStatus === 'timeout') {
@@ -69,25 +67,8 @@ export function QwenOAuthProgress({
     generateQR();
   }, [deviceAuth]);
 
-  // Global timeout timer (always runs regardless of deviceAuth)
+  // Countdown timer
   useEffect(() => {
-    const globalTimer = setInterval(() => {
-      setGlobalTimeRemaining((prev) => {
-        if (prev <= 1) {
-          onTimeout();
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-
-    return () => clearInterval(globalTimer);
-  }, [onTimeout]);
-
-  // Countdown timer (only when deviceAuth is available)
-  useEffect(() => {
-    if (!deviceAuth) return;
-
     const timer = setInterval(() => {
       setTimeRemaining((prev) => {
         if (prev <= 1) {
@@ -99,7 +80,7 @@ export function QwenOAuthProgress({
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [deviceAuth, onTimeout]);
+  }, [onTimeout]);
 
   // Animated dots
   useEffect(() => {
@@ -165,7 +146,7 @@ export function QwenOAuthProgress({
         </Box>
         <Box marginTop={1} justifyContent="space-between">
           <Text color={Colors.Gray}>
-            Time remaining: {formatTime(globalTimeRemaining)}
+            Time remaining: {formatTime(timeRemaining)}
           </Text>
           <Text color={Colors.AccentPurple}>(Press ESC to cancel)</Text>
         </Box>
