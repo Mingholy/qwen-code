@@ -46,19 +46,20 @@ export class QwenContentGenerator extends OpenAIContentGenerator {
   }
 
   /**
-   * Get the current endpoint URL
-   * Ensures the endpoint has a proper protocol scheme
+   * Get the current endpoint URL with proper protocol and /v1 suffix
    */
   private getCurrentEndpoint(): string {
-    const endpoint = this.currentEndpoint || DEFAULT_QWEN_BASE_URL;
+    const baseEndpoint = this.currentEndpoint || DEFAULT_QWEN_BASE_URL;
     const suffix = '/v1';
-
-    // If endpoint doesn't start with http:// or https://, treat it as hostname and add https://
-    if (endpoint && !endpoint.match(/^https?:\/\//)) {
-      return `https://${endpoint}${suffix}`;
-    }
-
-    return `${endpoint}${suffix}`;
+    
+    // Normalize the URL: add protocol if missing, ensure /v1 suffix
+    const normalizedUrl = baseEndpoint.startsWith('http') 
+      ? baseEndpoint 
+      : `https://${baseEndpoint}`;
+      
+    return normalizedUrl.endsWith(suffix) 
+      ? normalizedUrl 
+      : `${normalizedUrl}${suffix}`;
   }
 
   /**
