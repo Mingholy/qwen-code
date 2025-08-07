@@ -27,11 +27,12 @@ export function QwenOAuthProgress({
   authStatus,
   authMessage,
 }: QwenOAuthProgressProps): React.JSX.Element {
-  const [timeRemaining, setTimeRemaining] = useState<number>(
-    deviceAuth?.expires_in || 300, // Default 5 minutes
-  );
+  const defaultTimeout = deviceAuth?.expires_in || 300; // Default 5 minutes
+  const [timeRemaining, setTimeRemaining] = useState<number>(defaultTimeout);
   const [dots, setDots] = useState<string>('');
   const [qrCodeData, setQrCodeData] = useState<string | null>(null);
+  const [globalTimeRemaining, setGlobalTimeRemaining] =
+    useState<number>(defaultTimeout);
 
   useInput((input, key) => {
     if (authStatus === 'timeout') {
@@ -68,7 +69,22 @@ export function QwenOAuthProgress({
     generateQR();
   }, [deviceAuth]);
 
-  // Countdown timer
+  // Global timeout timer (always runs regardless of deviceAuth)
+  useEffect(() => {
+    const globalTimer = setInterval(() => {
+      setGlobalTimeRemaining((prev) => {
+        if (prev <= 1) {
+          onTimeout();
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(globalTimer);
+  }, [onTimeout]);
+
+  // Countdown timer (only when deviceAuth is available)
   useEffect(() => {
     if (!deviceAuth) return;
 
@@ -119,7 +135,8 @@ export function QwenOAuthProgress({
 
         <Box marginTop={1}>
           <Text>
-            {authMessage || 'Authentication timed out due to no user response.'}
+            {authMessage ||
+              `OAuth token expired (over ${defaultTimeout} seconds). Please select authentication method again.`}
           </Text>
         </Box>
 
@@ -146,7 +163,10 @@ export function QwenOAuthProgress({
             <Spinner type="dots" /> Waiting for Qwen OAuth authentication...
           </Text>
         </Box>
-        <Box marginTop={1}>
+        <Box marginTop={1} justifyContent="space-between">
+          <Text color={Colors.Gray}>
+            Time remaining: {formatTime(globalTimeRemaining)}
+          </Text>
           <Text color={Colors.AccentPurple}>(Press ESC to cancel)</Text>
         </Box>
       </Box>
