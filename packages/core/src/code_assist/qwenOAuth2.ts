@@ -332,26 +332,26 @@ export class QwenOAuth2Client implements IQwenOAuth2Client {
       try {
         const errorData = (await response.json()) as ErrorData;
 
-        // According to OAuth RFC 8628, these errors should be returned as HTTP 400
-        // and handled as part of the normal polling flow, not as real errors
-        if (response.status === 400) {
-          switch (errorData.error) {
-            case 'authorization_pending':
-              // User has not yet approved the authorization request. Continue polling.
-              return { status: 'pending' } as DeviceTokenPendingData;
+        console.log(errorData.error);
 
-            case 'slow_down':
-              // Client is polling too frequently. Return pending with slowDown flag.
-              return {
-                status: 'pending',
-                slowDown: true,
-              } as DeviceTokenPendingData;
-
-            default:
-              // For other 400 errors (access_denied, expired_token, etc.), throw as real errors
-              break;
-          }
+        // According to OAuth RFC 8628, handle standard polling responses
+        if (
+          response.status === 400 &&
+          errorData.error === 'authorization_pending'
+        ) {
+          // User has not yet approved the authorization request. Continue polling.
+          return { status: 'pending' } as DeviceTokenPendingData;
         }
+
+        if (response.status === 429 && errorData.error === 'slow_down') {
+          // Client is polling too frequently. Return pending with slowDown flag.
+          return {
+            status: 'pending',
+            slowDown: true,
+          } as DeviceTokenPendingData;
+        }
+
+        // Handle other 400 errors (access_denied, expired_token, etc.) as real errors
 
         // For other errors, throw with proper error information
         const error = new Error(
@@ -670,12 +670,16 @@ async function authWithQwenDeviceFlow(
         if (isDeviceTokenPending(tokenResponse)) {
           const pendingData = tokenResponse as DeviceTokenPendingData;
 
+          console.log(pendingData);
+
           // Handle slow_down error by increasing poll interval
           if (pendingData.slowDown) {
             pollInterval = Math.min(pollInterval * 1.5, 10000); // Increase by 50%, max 10 seconds
             console.log(
               `\nServer requested to slow down, increasing poll interval to ${pollInterval}ms`,
             );
+          } else {
+            pollInterval = 2000; // Reset to default interval
           }
 
           // Emit polling progress event

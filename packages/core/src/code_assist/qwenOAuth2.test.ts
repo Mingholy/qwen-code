@@ -6,6 +6,7 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { EventEmitter } from 'events';
+import { type ChildProcess } from 'child_process';
 import type { Config } from '../config/config.js';
 import {
   generateCodeChallenge,
@@ -546,6 +547,53 @@ describe('QwenOAuth2Client', () => {
         expect((error as Error & { status?: number }).status).toBe(429);
       }
     });
+
+    it('should handle authorization_pending with HTTP 400 according to RFC 8628', async () => {
+      const mockResponse = {
+        ok: false,
+        status: 400,
+        statusText: 'Bad Request',
+        json: async () => ({
+          error: 'authorization_pending',
+          error_description: 'The authorization request is still pending',
+        }),
+      };
+
+      vi.mocked(global.fetch).mockResolvedValue(mockResponse as Response);
+
+      const result = await client.pollDeviceToken({
+        device_code: 'test-device-code',
+        code_verifier: 'test-code-verifier',
+      });
+
+      expect(result).toEqual({
+        status: 'pending',
+      });
+    });
+
+    it('should handle slow_down with HTTP 429 according to RFC 8628', async () => {
+      const mockResponse = {
+        ok: false,
+        status: 429,
+        statusText: 'Too Many Requests',
+        json: async () => ({
+          error: 'slow_down',
+          error_description: 'The client is polling too frequently',
+        }),
+      };
+
+      vi.mocked(global.fetch).mockResolvedValue(mockResponse as Response);
+
+      const result = await client.pollDeviceToken({
+        device_code: 'test-device-code',
+        code_verifier: 'test-code-verifier',
+      });
+
+      expect(result).toEqual({
+        status: 'pending',
+        slowDown: true,
+      });
+    });
   });
 
   describe('refreshAccessToken error handling', () => {
@@ -805,7 +853,7 @@ describe('QwenOAuth2Client - Additional Error Scenarios', () => {
 
       // Access private method for testing
       const isValid = (
-        client as QwenOAuth2Client & { isTokenValid(): boolean }
+        client as unknown as { isTokenValid(): boolean }
       ).isTokenValid();
       expect(isValid).toBe(false);
     });
@@ -1206,7 +1254,7 @@ describe('Browser Launch and Error Handling', () => {
       }),
     };
     vi.mocked(open.default).mockResolvedValue(
-      mockChildProcess as ReturnType<typeof open.default>,
+      mockChildProcess as unknown as ChildProcess,
     );
 
     const mockAuthResponse = {
