@@ -136,7 +136,7 @@ export function createContentGeneratorConfig(
     // For Qwen OAuth, we'll handle the API key dynamically in createContentGenerator
     // Set a special marker to indicate this is Qwen OAuth
     contentGeneratorConfig.apiKey = 'QWEN_OAUTH_DYNAMIC_TOKEN';
-    contentGeneratorConfig.model = config.getModel() || 'qwen-coder-plus';
+    contentGeneratorConfig.model = config.getModel() || DEFAULT_GEMINI_MODEL;
 
     return contentGeneratorConfig;
   }
