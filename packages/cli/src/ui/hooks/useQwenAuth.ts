@@ -22,7 +22,13 @@ export interface DeviceAuthorizationInfo {
 interface QwenAuthState {
   isQwenAuthenticating: boolean;
   deviceAuth: DeviceAuthorizationInfo | null;
-  authStatus: 'idle' | 'polling' | 'success' | 'error' | 'timeout';
+  authStatus:
+    | 'idle'
+    | 'polling'
+    | 'success'
+    | 'error'
+    | 'timeout'
+    | 'rate_limit';
   authMessage: string | null;
 }
 
@@ -78,7 +84,7 @@ export const useQwenAuth = (
     };
 
     const handleAuthProgress = (
-      status: 'success' | 'error' | 'polling' | 'timeout',
+      status: 'success' | 'error' | 'polling' | 'timeout' | 'rate_limit',
       message?: string,
     ) => {
       setQwenAuthState((prev) => ({

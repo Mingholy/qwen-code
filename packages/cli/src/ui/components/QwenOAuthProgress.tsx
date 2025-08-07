@@ -16,7 +16,7 @@ interface QwenOAuthProgressProps {
   onTimeout: () => void;
   onCancel: () => void;
   deviceAuth?: DeviceAuthorizationInfo;
-  authStatus?: 'idle' | 'polling' | 'success' | 'error' | 'timeout';
+  authStatus?: 'idle' | 'polling' | 'success' | 'error' | 'timeout' | 'rate_limit';
   authMessage?: string | null;
 }
 

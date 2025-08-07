@@ -124,7 +124,7 @@ describe('useQwenAuth', () => {
   it('should handle auth progress event - success', () => {
     const settings = createMockSettings(AuthType.QWEN_OAUTH);
     let handleAuthProgress: (
-      status: 'success' | 'error' | 'polling',
+      status: 'success' | 'error' | 'polling' | 'timeout' | 'rate_limit',
       message?: string,
     ) => void;
 
@@ -148,7 +148,7 @@ describe('useQwenAuth', () => {
   it('should handle auth progress event - error', () => {
     const settings = createMockSettings(AuthType.QWEN_OAUTH);
     let handleAuthProgress: (
-      status: 'success' | 'error' | 'polling',
+      status: 'success' | 'error' | 'polling' | 'timeout' | 'rate_limit',
       message?: string,
     ) => void;
 
@@ -172,7 +172,7 @@ describe('useQwenAuth', () => {
   it('should handle auth progress event - polling', () => {
     const settings = createMockSettings(AuthType.QWEN_OAUTH);
     let handleAuthProgress: (
-      status: 'success' | 'error' | 'polling',
+      status: 'success' | 'error' | 'polling' | 'timeout' | 'rate_limit',
       message?: string,
     ) => void;
 
@@ -195,10 +195,39 @@ describe('useQwenAuth', () => {
     );
   });
 
+  it('should handle auth progress event - rate_limit', () => {
+    const settings = createMockSettings(AuthType.QWEN_OAUTH);
+    let handleAuthProgress: (
+      status: 'success' | 'error' | 'polling' | 'timeout' | 'rate_limit',
+      message?: string,
+    ) => void;
+
+    mockQwenOAuth2Events.on.mockImplementation((event, handler) => {
+      if (event === QwenOAuth2Event.AuthProgress) {
+        handleAuthProgress = handler;
+      }
+      return mockQwenOAuth2Events;
+    });
+
+    const { result } = renderHook(() => useQwenAuth(settings, true));
+
+    act(() => {
+      handleAuthProgress!(
+        'rate_limit',
+        'Too many requests. The server is rate limiting our requests. Please select a different authentication method or try again later.',
+      );
+    });
+
+    expect(result.current.authStatus).toBe('rate_limit');
+    expect(result.current.authMessage).toBe(
+      'Too many requests. The server is rate limiting our requests. Please select a different authentication method or try again later.',
+    );
+  });
+
   it('should handle auth progress event without message', () => {
     const settings = createMockSettings(AuthType.QWEN_OAUTH);
     let handleAuthProgress: (
-      status: 'success' | 'error' | 'polling',
+      status: 'success' | 'error' | 'polling' | 'timeout' | 'rate_limit',
       message?: string,
     ) => void;
 
