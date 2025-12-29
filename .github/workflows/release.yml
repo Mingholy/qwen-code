@@ -173,9 +173,14 @@ jobs:
             --generate-notes
           )
 
-          # Only add --notes-start-tag if PREVIOUS_RELEASE_TAG exists and is not empty
+          # Only add --notes-start-tag if PREVIOUS_RELEASE_TAG exists and the tag exists in the repo
           if [[ -n "${PREVIOUS_RELEASE_TAG}" && "${PREVIOUS_RELEASE_TAG}" != "null" && "${PREVIOUS_RELEASE_TAG}" != "" ]]; then
-            RELEASE_ARGS+=(--notes-start-tag "$PREVIOUS_RELEASE_TAG")
+            if git rev-parse "${PREVIOUS_RELEASE_TAG}" >/dev/null 2>&1; then
+              echo "Found previous release tag: ${PREVIOUS_RELEASE_TAG}"
+              RELEASE_ARGS+=(--notes-start-tag "$PREVIOUS_RELEASE_TAG")
+            else
+              echo "Previous release tag ${PREVIOUS_RELEASE_TAG} does not exist in repo, skipping --notes-start-tag"
+            fi
           fi
 
           gh release create "${RELEASE_ARGS[@]}"
