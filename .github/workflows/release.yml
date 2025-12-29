@@ -166,11 +166,19 @@ jobs:
           RELEASE_TAG: '${{ steps.version.outputs.RELEASE_TAG }}'
           PREVIOUS_RELEASE_TAG: '${{ steps.version.outputs.PREVIOUS_RELEASE_TAG }}'
         run: |-
-          gh release create "${RELEASE_TAG}" \
-            --target "$RELEASE_BRANCH" \
-            --title "Release ${RELEASE_TAG}" \
-            --notes-start-tag "$PREVIOUS_RELEASE_TAG" \
+          RELEASE_ARGS=(
+            "${RELEASE_TAG}"
+            --target "$RELEASE_BRANCH"
+            --title "Release ${RELEASE_TAG}"
             --generate-notes
+          )
+
+          # Only add --notes-start-tag if PREVIOUS_RELEASE_TAG exists and is not empty
+          if [[ -n "${PREVIOUS_RELEASE_TAG}" && "${PREVIOUS_RELEASE_TAG}" != "null" && "${PREVIOUS_RELEASE_TAG}" != "" ]]; then
+            RELEASE_ARGS+=(--notes-start-tag "$PREVIOUS_RELEASE_TAG")
+          fi
+
+          gh release create "${RELEASE_ARGS[@]}"
 
       - name: 'Bump version and commit back to main'
         if: |-
