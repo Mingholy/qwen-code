@@ -173,14 +173,40 @@ jobs:
             --generate-notes
           )
 
-          # Only add --notes-start-tag if PREVIOUS_RELEASE_TAG exists and the tag exists in the repo
+          # Determine which tag to use as the starting point for release notes
+          START_TAG=""
+
           if [[ -n "${PREVIOUS_RELEASE_TAG}" && "${PREVIOUS_RELEASE_TAG}" != "null" && "${PREVIOUS_RELEASE_TAG}" != "" ]]; then
+            # Check if PREVIOUS_RELEASE_TAG exists in the repo
             if git rev-parse "${PREVIOUS_RELEASE_TAG}" >/dev/null 2>&1; then
-              echo "Found previous release tag: ${PREVIOUS_RELEASE_TAG}"
-              RELEASE_ARGS+=(--notes-start-tag "$PREVIOUS_RELEASE_TAG")
+              echo "Using PREVIOUS_RELEASE_TAG from npm: ${PREVIOUS_RELEASE_TAG}"
+              START_TAG="${PREVIOUS_RELEASE_TAG}"
             else
-              echo "Previous release tag ${PREVIOUS_RELEASE_TAG} does not exist in repo, skipping --notes-start-tag"
+              echo "PREVIOUS_RELEASE_TAG ${PREVIOUS_RELEASE_TAG} from npm does not exist in repo"
+              # Try to find the latest tag in the repo as fallback
+              LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+              if [[ -n "${LATEST_TAG}" ]]; then
+                echo "Using latest tag from repo as fallback: ${LATEST_TAG}"
+                START_TAG="${LATEST_TAG}"
+              else
+                echo "No tags found in repo, generating notes from all history"
+              fi
             fi
+          else
+            echo "No PREVIOUS_RELEASE_TAG provided"
+            # Try to find the latest tag in the repo
+            LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+            if [[ -n "${LATEST_TAG}" ]]; then
+              echo "Using latest tag from repo: ${LATEST_TAG}"
+              START_TAG="${LATEST_TAG}"
+            else
+              echo "No tags found in repo, generating notes from all history"
+            fi
+          fi
+
+          # Add --notes-start-tag if we have a valid starting tag
+          if [[ -n "${START_TAG}" ]]; then
+            RELEASE_ARGS+=(--notes-start-tag "$START_TAG")
           fi
 
           gh release create "${RELEASE_ARGS[@]}"
