@@ -202,7 +202,6 @@ jobs:
           gh release create "sdk-typescript-${RELEASE_TAG}" \
             --target "${TARGET}" \
             --title "SDK TypeScript Release ${RELEASE_TAG}" \
-            --notes-start-tag "sdk-typescript-${PREVIOUS_RELEASE_TAG}" \
             --generate-notes \
             ${PRERELEASE_FLAG}
 
