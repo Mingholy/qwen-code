@@ -46,6 +46,7 @@ jobs:
       packages: 'write'
       id-token: 'write'
       issues: 'write' # For creating issues on failure
+      pull-requests: 'write' # For creating PRs
     outputs:
       RELEASE_TAG: '${{ steps.version.outputs.RELEASE_TAG }}'
 
