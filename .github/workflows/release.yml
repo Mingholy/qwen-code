@@ -182,24 +182,25 @@ jobs:
             --title "Release ${RELEASE_TAG}" \
             --generate-notes
 
-      - name: 'Merge release changes back to main'
+      - name: 'Create bump version PR'
         if: |-
           ${{ steps.vars.outputs.is_dry_run == 'false' && steps.vars.outputs.is_nightly == 'false' && steps.vars.outputs.is_preview == 'false' }}
         env:
-          GITHUB_TOKEN: '${{ secrets.GITHUB_TOKEN }}'
+          GH_TOKEN: '${{ secrets.CI_BOT_PAT }}'
           RELEASE_TAG: '${{ steps.version.outputs.RELEASE_TAG }}'
           RELEASE_BRANCH: '${{ steps.release_branch.outputs.BRANCH_NAME }}'
         run: |-
-          # Checkout main branch
-          git fetch origin main
-          git checkout main
-          git pull origin main
-
-          # Merge the release branch commit into main
-          git merge "${RELEASE_BRANCH}" --no-ff -m "chore: bump version to ${RELEASE_TAG}"
-
-          # Push changes
-          git push origin main
+          PR_TITLE="chore: bump version ${RELEASE_TAG}"
+          PR_BODY="Automated PR to bump version ${RELEASE_TAG} into main."
+          if gh pr view "${RELEASE_BRANCH}" >/dev/null 2>&1; then
+            echo "A PR already exists for ${RELEASE_BRANCH}. Skipping creation."
+          else
+            gh pr create \
+              --title "${PR_TITLE}" \
+              --body "${PR_BODY}" \
+              --base main \
+              --head "${RELEASE_BRANCH}"
+          fi
 
       - name: 'Create Issue on Failure'
         if: |-
