@@ -1,6 +1,6 @@
 {
   "name": "@qwen-code/qwen-code",
-  "version": "0.6.2-nightly.20260107.a36c642a",
+  "version": "0.6.0-preview.4",
   "description": "Qwen Code",
   "repository": {
     "type": "git",
@@ -33,7 +33,7 @@
     "dist"
   ],
   "config": {
-    "sandboxImageUri": "ghcr.io/qwenlm/qwen-code:0.6.2-nightly.20260107.a36c642a"
+    "sandboxImageUri": "ghcr.io/qwenlm/qwen-code:0.6.0-preview.4"
   },
   "dependencies": {
     "@google/genai": "1.30.0",
