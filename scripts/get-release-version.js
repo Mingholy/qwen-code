@@ -15,6 +15,11 @@ function readJson(filePath) {
   return JSON.parse(readFileSync(filePath, 'utf-8'));
 }
 
+function getPackageBaseVersion() {
+  const packageJson = readJson('package.json');
+  return packageJson.version.split('-')[0];
+}
+
 function getArgs() {
   const args = {};
   process.argv.slice(2).forEach((arg) => {
@@ -213,24 +218,62 @@ function getLatestStableReleaseTag() {
   }
 }
 
-function promoteNightlyVersion() {
-  const { latestVersion } = getAndVerifyTags('nightly', 'v*-nightly*');
-  const baseVersion = latestVersion.split('-')[0];
-  const versionParts = baseVersion.split('.');
-  const major = versionParts[0];
-  const minor = versionParts[1] ? parseInt(versionParts[1]) : 0;
-  const nextMinor = minor + 1;
+function resolveNightlyBaseline(promoteFrom) {
+  if (promoteFrom === 'stable') {
+    try {
+      const { latestVersion } = getAndVerifyTags(
+        'latest',
+        'v[0-9].[0-9].[0-9]',
+      );
+      return latestVersion;
+    } catch (error) {
+      console.error(
+        `Unable to read latest stable version from npm; falling back to package.json: ${error.message}`,
+      );
+      return getPackageBaseVersion();
+    }
+  }
+  try {
+    const { latestVersion } = getAndVerifyTags('nightly', 'v*-nightly*');
+    return latestVersion.split('-')[0];
+  } catch (error) {
+    console.error(
+      `Unable to read latest nightly version from npm; falling back to package.json: ${error.message}`,
+    );
+    return getPackageBaseVersion();
+  }
+}
+
+function promoteNightlyVersion(args = {}) {
+  const promoteFrom =
+    args.promote_from && args.promote_from.toLowerCase() === 'stable'
+      ? 'stable'
+      : 'nightly';
+  const promoteStepRaw = (args.promote_step || 'minor').toLowerCase();
+  if (promoteStepRaw !== 'minor' && promoteStepRaw !== 'patch') {
+    throw new Error(
+      `Unsupported promote_step "${promoteStepRaw}". Expected "minor" or "patch".`,
+    );
+  }
+
+  const baselineVersion = resolveNightlyBaseline(promoteFrom);
+  const nextBaseVersion = semver.inc(baselineVersion, promoteStepRaw);
+  if (!nextBaseVersion) {
+    throw new Error(
+      `Unable to increment ${baselineVersion} using promote_step ${promoteStepRaw}`,
+    );
+  }
+
   const date = new Date().toISOString().slice(0, 10).replace(/-/g, '');
   const gitShortHash = execSync('git rev-parse --short HEAD').toString().trim();
   return {
-    releaseVersion: `${major}.${nextMinor}.0-nightly.${date}.${gitShortHash}`,
+    releaseVersion: `${nextBaseVersion}-nightly.${date}.${gitShortHash}`,
     npmTag: 'nightly',
   };
 }
 
 function getNightlyVersion() {
-  const packageJson = readJson('package.json');
-  const baseVersion = packageJson.version.split('-')[0];
+  const baseVersion = getPackageBaseVersion();
   const date = new Date().toISOString().slice(0, 10).replace(/-/g, '');
   const gitShortHash = execSync('git rev-parse --short HEAD').toString().trim();
   const releaseVersion = `${baseVersion}-nightly.${date}.${gitShortHash}`;
@@ -358,7 +401,7 @@ export function getVersion(options = {}) {
       }
       break;
     case 'promote-nightly':
-      versionData = promoteNightlyVersion();
+      versionData = promoteNightlyVersion(args);
       break;
     case 'stable':
       versionData = getStableVersion(args);

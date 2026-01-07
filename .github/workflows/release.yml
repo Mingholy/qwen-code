@@ -183,25 +183,62 @@ jobs:
             --title "Release ${RELEASE_TAG}" \
             --generate-notes
 
-      - name: 'Create bump version PR'
+      - name: 'Calculate next nightly version'
         if: |-
           ${{ steps.vars.outputs.is_dry_run == 'false' && steps.vars.outputs.is_nightly == 'false' && steps.vars.outputs.is_preview == 'false' }}
+        id: 'next_nightly'
+        run: |-
+          set -euo pipefail
+          nightly_json=$(node scripts/get-release-version.js --type=promote-nightly --promote_step=patch --promote_from=stable)
+          echo "NIGHTLY_VERSION=$(echo "$nightly_json" | jq -r .releaseVersion)" >> "$GITHUB_OUTPUT"
+          echo "NIGHTLY_TAG=$(echo "$nightly_json" | jq -r .releaseTag)" >> "$GITHUB_OUTPUT"
+
+      - name: 'Prepare nightly promote branch'
+        if: |-
+          ${{ steps.vars.outputs.is_dry_run == 'false' && steps.vars.outputs.is_nightly == 'false' && steps.vars.outputs.is_preview == 'false' && steps.next_nightly.outputs.NIGHTLY_VERSION != '' }}
+        id: 'nightly_branch'
         env:
-          GH_TOKEN: '${{ secrets.CI_BOT_PAT }}'
-          RELEASE_TAG: '${{ steps.version.outputs.RELEASE_TAG }}'
+          NIGHTLY_VERSION: '${{ steps.next_nightly.outputs.NIGHTLY_VERSION }}'
           RELEASE_BRANCH: '${{ steps.release_branch.outputs.BRANCH_NAME }}'
         run: |-
-          PR_TITLE="chore: bump version ${RELEASE_TAG}"
-          PR_BODY="Automated PR to bump version ${RELEASE_TAG} into main."
-          if gh pr view "${RELEASE_BRANCH}" >/dev/null 2>&1; then
-            echo "A PR already exists for ${RELEASE_BRANCH}. Skipping creation."
-          else
-            gh pr create \
-              --title "${PR_TITLE}" \
-              --body "${PR_BODY}" \
-              --base main \
-              --head "${RELEASE_BRANCH}"
+          set -euo pipefail
+          NIGHTLY_BRANCH="nightly/${NIGHTLY_VERSION}"
+          if git show-ref --verify --quiet "refs/heads/${NIGHTLY_BRANCH}"; then
+            git branch -D "${NIGHTLY_BRANCH}"
           fi
+          git switch "${RELEASE_BRANCH}"
+          git switch -c "${NIGHTLY_BRANCH}"
+          npm run release:version "${NIGHTLY_VERSION}"
+          git add package.json package-lock.json packages/*/package.json
+          if git diff --staged --quiet; then
+            echo "No nightly bump changes detected; skipping branch creation."
+            exit 0
+          fi
+          git commit -m "chore(nightly): ${NIGHTLY_VERSION}"
+          git push --force --set-upstream origin "${NIGHTLY_BRANCH}"
+          echo "BRANCH_NAME=${NIGHTLY_BRANCH}" >> "$GITHUB_OUTPUT"
+
+      - name: 'Create nightly promote PR'
+        if: |-
+          ${{ steps.vars.outputs.is_dry_run == 'false' && steps.vars.outputs.is_nightly == 'false' && steps.vars.outputs.is_preview == 'false' && steps.nightly_branch.outputs.BRANCH_NAME != '' }}
+        env:
+          GH_TOKEN: '${{ secrets.CI_BOT_PAT }}'
+          NIGHTLY_BRANCH: '${{ steps.nightly_branch.outputs.BRANCH_NAME }}'
+          NIGHTLY_VERSION: '${{ steps.next_nightly.outputs.NIGHTLY_VERSION }}'
+          RELEASE_TAG: '${{ steps.version.outputs.RELEASE_TAG }}'
+        run: |-
+          set -euo pipefail
+          pr_exists=$(gh pr list --head "${NIGHTLY_BRANCH}" --state open --json number --jq 'length')
+          if [[ "${pr_exists}" != "0" ]]; then
+            echo "Open nightly promote PR already exists; skipping creation."
+            exit 0
+          fi
+
+          gh pr create \
+            --base main \
+            --head "${NIGHTLY_BRANCH}" \
+            --title "chore(release): ${NIGHTLY_VERSION}" \
+            --body "Automated bump version to ${NIGHTLY_VERSION} after ${RELEASE_TAG}."
 
       - name: 'Create Issue on Failure'
         if: |-
