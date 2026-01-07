@@ -187,9 +187,11 @@ jobs:
         if: |-
           ${{ steps.vars.outputs.is_dry_run == 'false' && steps.vars.outputs.is_nightly == 'false' && steps.vars.outputs.is_preview == 'false' }}
         id: 'next_nightly'
+        env:
+          RELEASE_VERSION: '${{ steps.version.outputs.RELEASE_VERSION }}'
         run: |-
           set -euo pipefail
-          nightly_json=$(node scripts/get-release-version.js --type=promote-nightly --promote_step=patch --promote_from=stable)
+          nightly_json=$(node scripts/get-release-version.js --type=promote-nightly --promote_step=patch --promote_from=stable "--promote_baseline=${RELEASE_VERSION}")
           echo "NIGHTLY_VERSION=$(echo "$nightly_json" | jq -r .releaseVersion)" >> "$GITHUB_OUTPUT"
           echo "NIGHTLY_TAG=$(echo "$nightly_json" | jq -r .releaseTag)" >> "$GITHUB_OUTPUT"
 
@@ -239,7 +241,6 @@ jobs:
             --head "${NIGHTLY_BRANCH}" \
             --title "chore(release): ${NIGHTLY_VERSION}" \
             --body "Automated bump version to ${NIGHTLY_VERSION} after ${RELEASE_TAG}."
-
       - name: 'Create Issue on Failure'
         if: |-
           ${{ failure() }}

@@ -218,7 +218,16 @@ function getLatestStableReleaseTag() {
   }
 }
 
-function resolveNightlyBaseline(promoteFrom) {
+function resolveNightlyBaseline(promoteFrom, baselineOverride) {
+  if (baselineOverride) {
+    const normalized = baselineOverride.replace(/^v/, '');
+    if (!semver.valid(normalized)) {
+      throw new Error(
+        `Invalid promote_baseline "${baselineOverride}". Expected a valid semver version.`,
+      );
+    }
+    return normalized;
+  }
   if (promoteFrom === 'stable') {
     try {
       const { latestVersion } = getAndVerifyTags(
@@ -256,7 +265,10 @@ function promoteNightlyVersion(args = {}) {
     );
   }
 
-  const baselineVersion = resolveNightlyBaseline(promoteFrom);
+  const baselineVersion = resolveNightlyBaseline(
+    promoteFrom,
+    args.promote_baseline,
+  );
   const nextBaseVersion = semver.inc(baselineVersion, promoteStepRaw);
   if (!nextBaseVersion) {
     throw new Error(
