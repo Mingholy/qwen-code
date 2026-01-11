@@ -50,6 +50,7 @@ jobs:
       packages: 'write'
       id-token: 'write'
       issues: 'write'
+      pull-requests: 'write'
     outputs:
       RELEASE_TAG: '${{ steps.version.outputs.RELEASE_TAG }}'
 
@@ -205,25 +206,37 @@ jobs:
             --generate-notes \
             ${PRERELEASE_FLAG}
 
-      - name: 'Create bump version PR'
+      - name: 'Create PR to merge release branch into main'
+        if: |-
+          ${{ steps.vars.outputs.is_dry_run == 'false' && steps.vars.outputs.is_nightly == 'false' && steps.vars.outputs.is_preview == 'false' }}
+        id: 'pr'
+        env:
+          GITHUB_TOKEN: '${{ secrets.CI_BOT_PAT }}'
+          RELEASE_BRANCH: '${{ steps.release_branch.outputs.BRANCH_NAME }}'
+          RELEASE_TAG: '${{ steps.version.outputs.RELEASE_TAG }}'
+        run: |-
+          set -euo pipefail
+
+          pr_url="$(gh pr list --head "${RELEASE_BRANCH}" --base main --json url --jq '.[0].url')"
+          if [[ -z "${pr_url}" ]]; then
+            pr_url="$(gh pr create \
+              --base main \
+              --head "${RELEASE_BRANCH}" \
+              --title "chore(release): sdk-typescript ${RELEASE_TAG}" \
+              --body "Automated release PR for sdk-typescript ${RELEASE_TAG}.")"
+          fi
+
+          echo "PR_URL=${pr_url}" >> "${GITHUB_OUTPUT}"
+
+      - name: 'Enable auto-merge for release PR'
         if: |-
           ${{ steps.vars.outputs.is_dry_run == 'false' && steps.vars.outputs.is_nightly == 'false' && steps.vars.outputs.is_preview == 'false' }}
         env:
-          GH_TOKEN: '${{ secrets.CI_BOT_PAT }}'
-          RELEASE_TAG: '${{ steps.version.outputs.RELEASE_TAG }}'
-          RELEASE_BRANCH: '${{ steps.release_branch.outputs.BRANCH_NAME }}'
+          GITHUB_TOKEN: '${{ secrets.CI_BOT_PAT }}'
+          PR_URL: '${{ steps.pr.outputs.PR_URL }}'
         run: |-
-          PR_TITLE="chore: bump sdk-typescript ${RELEASE_TAG}"
-          PR_BODY="Automated PR to bump sdk-typescript version ${RELEASE_TAG} into main."
-          if gh pr view "${RELEASE_BRANCH}" >/dev/null 2>&1; then
-            echo "A PR already exists for ${RELEASE_BRANCH}. Skipping creation."
-          else
-            gh pr create \
-              --title "${PR_TITLE}" \
-              --body "${PR_BODY}" \
-              --base main \
-              --head "${RELEASE_BRANCH}"
-          fi
+          set -euo pipefail
+          gh pr merge "${PR_URL}" --merge --auto --delete-branch
 
       - name: 'Create Issue on Failure'
         if: |-
